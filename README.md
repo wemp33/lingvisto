@@ -1,4 +1,4 @@
-# Glossa
+# Lingvisto
 
 An AI language tutor you talk to, write for, and build a glossary with.
 German, Russian and Italian, from English or Polish.
@@ -25,6 +25,14 @@ what changed and agreed to it.
 **Write** — a whiteboard built for Apple Pencil, with a tutor that reads what
 you wrote and says what is wrong with it — letterform, spelling, and for
 Russian whether you drew printed letters where cursive belongs.
+
+**Songs** — give it a title and a band and it builds a vocabulary lesson from
+that song: the words worth learning in dictionary form, the idioms it uses,
+the grammar it practises, and what to listen for when a singer swallows half a
+syllable. Everyday vocabulary is separated from the poetic and archaic usage
+songs are full of, so nobody starts speaking in lyrics. Pick what you want and
+it joins the same glossary and the same review queue, tagged with where it came
+from.
 
 **Review** — spaced repetition over four separate skills per word: recognising
 it, producing it, saying it, and writing it by hand.
@@ -114,7 +122,7 @@ cost real time to discover.
 API, and no way even to *read* which keyboard is active — WebKit's
 `FocusedElementInformation` carries no locale field at all. Asking the learner
 to hit the globe key every time they type a German word is not a product, so
-Glossa draws its own keyboards. They run on a real `<input>` with
+Lingvisto draws its own keyboards. They run on a real `<input>` with
 `inputmode="none"`, which WebKit honours by keeping the system keyboard down
 while the field keeps a genuine caret and native selection handles.
 `autocorrect="off"` matters just as much: with an English keyboard active, iOS
@@ -130,6 +138,16 @@ initialised outside a user gesture with no error and no event, and an `<audio>`
 sink attached after the network handshake loses the tutor's first sentence. So
 the audio context, the silent unlock buffer, the audio session type, the sink
 element and `getUserMedia` all happen before the first `await` in `connect()`.
+
+**Songs teach vocabulary, not lyrics.** The song feature never reproduces the
+words of a song — not a line, not a distinctive phrase. Vocabulary comes back
+in dictionary form, idioms in their neutral form, and every example sentence is
+one the model wrote about something else. That is partly because lyrics are not
+ours to reproduce, but mostly because a lyric sheet is not a study artifact: you
+cannot review a line of a song, whereas you can review `sich sehnen nach +
+Dativ`. The model is also told to answer "I don't know this song" rather than
+assemble a plausible lesson from the title, and to flag low confidence — a
+fabricated lesson is worse than none.
 
 **Never let the conversational model be the grader.** Audio models will assert
 that plainly wrong articulation "closely matches a native speaker". The tutor

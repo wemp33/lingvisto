@@ -9,7 +9,7 @@
 // carries its own updatedAt and loses to a later edit like anything else.
 import { q } from './db.js';
 
-const KINDS = new Set(['word', 'card', 'page', 'log', 'pref', 'convo']);
+const KINDS = new Set(['word', 'card', 'page', 'log', 'pref', 'convo', 'song']);
 const MAX_BATCH = 500;
 const MAX_RECORD_BYTES = 1_500_000; // a whiteboard page with a lot of ink
 

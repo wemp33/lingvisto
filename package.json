@@ -1,8 +1,8 @@
 {
-  "name": "glossa",
+  "name": "lingvisto",
   "version": "1.0.0",
   "private": true,
-  "description": "Glossa — an AI language tutor you talk to, write for, and build a glossary with.",
+  "description": "Lingvisto — an AI language tutor you talk to, write for, and build a glossary with.",
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {

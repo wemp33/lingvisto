@@ -12,6 +12,7 @@ import { LANGS, stripStress, looseEqual } from './lang.js';
 import { newCard, SKILLS, STATE } from './srs.js';
 import { t, uiLang, relativeTime, formatDate } from './i18n.js';
 import { el, clear, sheet, toast, toastError, confirmAction, tap, debounce } from './ui.js';
+import { songsSection } from './songs.js';
 
 /* ---------- data ---------- */
 
@@ -116,7 +117,7 @@ export function openAddWord(ctx, { prefill = '', lang = null, onSaved = null } =
     checkBtn,
   );
 
-  // Glossa's own keyboard, because iOS gives a web page no way to switch the
+  // Lingvisto's own keyboard, because iOS gives a web page no way to switch the
   // system one. The meaning field keeps the normal keyboard — it is being
   // typed in Polish or English, which the learner already has.
   kb.bind(termInput, () => L.code);
@@ -427,6 +428,11 @@ export function renderWords(root, ctx) {
     search, filter, list, countNote,
   );
 
+  // Songs sit under the word list rather than in the tab bar: they are a way
+  // of filling the glossary, not a fifth place to go.
+  const songs = songsSection(ctx, paint);
+  root.append(songs);
+
   async function paint() {
     const words = (await allWords(lang)).sort((a, b) => b.createdAt - a.createdAt);
     const cards = await store.all('card');
@@ -465,6 +471,7 @@ export function renderWords(root, ctx) {
         el('span.meta', {}, [
           dotsNode(strengthDots(cards, w.id)),
           w.unchecked ? el('span.pill.warn', { text: '?' }) : null,
+          w.source === 'song' ? el('span.pill', { text: '♪' }) : null,
         ]),
       ]));
     }

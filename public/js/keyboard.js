@@ -1,4 +1,4 @@
-// Glossa's own keyboard.
+// Lingvisto's own keyboard.
 //
 // iOS gives a web page no way at all to choose which system keyboard appears —
 // there is no attribute, no API, and no way even to read which one is active.
@@ -396,7 +396,7 @@ export function hide() {
 export const isOpen = () => !!target;
 export const height = () => (HOST()?.classList.contains('on') ? HOST().offsetHeight : 0);
 
-// Wire an input so tapping it opens the Glossa keyboard. `getLang` is a
+// Wire an input so tapping it opens the Lingvisto keyboard. `getLang` is a
 // function so a field can follow whichever language the screen is showing.
 export function bind(input, getLang, opts = {}) {
   input.addEventListener('focus', () => show(input, typeof getLang === 'function' ? getLang() : getLang, opts));

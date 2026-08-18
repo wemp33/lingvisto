@@ -166,40 +166,42 @@ export function confirmAction({ title, message, confirmLabel, danger = false }) 
 }
 
 /* ---------- the mark ---------- */
-// Same geometry as tools/gen-icons.mjs, inlined so the header never waits on a
-// network fetch and the gradient can pick up the page's own tokens.
-export function paintMark(svgEl, { id = 'gm' } = {}) {
+// Two speech bubbles, one outlined and one filled — the same constants as
+// tools/gen-icons.mjs, inlined so the header never waits on a network fetch and
+// the gradient can pick up the page's own tokens. Each instance needs its own
+// gradient and mask ids, or several marks on one page share the first one's.
+const BACK = { cx: -0.28, cy: -0.42, hw: 0.52, hh: 0.345, r: 0.165 };
+const FRONT = { cx: 0.20, cy: 0.20, hw: 0.62, hh: 0.40, r: 0.185 };
+const STROKE = 0.058;
+const GAP = 0.072;
+const TAIL = [[-0.36, 0.30], [0.02, 0.30], [-0.44, 0.80]];
+
+let markSeq = 0;
+
+export function paintMark(svgEl, { id = null } = {}) {
+  const uid = id || `mk${++markSeq}`;
+  const K = 41;
+  const C = 50;
+  const f = (n) => (C + n * K).toFixed(2);
+  const u = (n) => (n * K).toFixed(2);
+  const rrect = (b) =>
+    `<rect x="${f(b.cx - b.hw)}" y="${f(b.cy - b.hh)}" width="${u(b.hw * 2)}" height="${u(b.hh * 2)}" rx="${u(b.r)}" ry="${u(b.r)}"/>`;
+  const tail = `<polygon points="${TAIL.map(([x, y]) => `${f(x)},${f(y)}`).join(' ')}"/>`;
+
+  svgEl.setAttribute('viewBox', '0 0 100 100');
   svgEl.innerHTML = `
-    <defs><linearGradient id="${id}" x1="0" y1="8" x2="0" y2="92" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4F8F6E"/><stop offset=".52" stop-color="#2E7550"/><stop offset="1" stop-color="#0E3A23"/>
-    </linearGradient></defs>
-    <path fill="url(#${id})" d="${MARK_BOWL}"/>
-    <path fill="url(#${id})" d="${MARK_BAR}"/>`;
+    <defs>
+      <linearGradient id="${uid}g" x1="0" y1="${f(-1)}" x2="0" y2="${f(1)}" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#4F8F6E"/><stop offset=".52" stop-color="#2E7550"/><stop offset="1" stop-color="#0E3A23"/>
+      </linearGradient>
+      <mask id="${uid}m">
+        <rect width="100" height="100" fill="#fff"/>
+        <g fill="#000" stroke="#000" stroke-width="${u(GAP * 2)}" stroke-linejoin="round">${rrect(FRONT)}${tail}</g>
+      </mask>
+    </defs>
+    <g mask="url(#${uid}m)" fill="none" stroke="url(#${uid}g)" stroke-width="${u(STROKE * 2)}">${rrect(BACK)}</g>
+    <g fill="url(#${uid}g)">${rrect(FRONT)}${tail}</g>`;
 }
-
-// Precomputed from the generator's constants (R=42, centre 50, y down).
-const MARK_BOWL = (() => {
-  const R = 42, C = 50, STEPS = 96;
-  const W_MAX = 0.300, W_MIN = 0.112;
-  const GAP_FROM = (-34 * Math.PI) / 180, GAP_TO = 0;
-  const strokeAt = (th) => W_MIN + (W_MAX - W_MIN) * Math.cos(th) ** 2;
-  const span = Math.PI * 2 - (GAP_TO - GAP_FROM);
-  const outer = [], inner = [];
-  for (let i = 0; i <= STEPS; i++) {
-    const th = GAP_TO + (span * i) / STEPS;
-    outer.push(`${(C + R * Math.cos(th)).toFixed(2)} ${(C + R * Math.sin(th)).toFixed(2)}`);
-    const ri = R * (1 - strokeAt(th));
-    inner.push(`${(C + ri * Math.cos(th)).toFixed(2)} ${(C + ri * Math.sin(th)).toFixed(2)}`);
-  }
-  return `M ${outer.join(' L ')} L ${inner.reverse().join(' L ')} Z`;
-})();
-
-const MARK_BAR = (() => {
-  const R = 42, C = 50, BAR_HALF = 0.079, X0 = 0.255, X1 = 1.0;
-  const y0 = (C - R * BAR_HALF).toFixed(2), y1 = (C + R * BAR_HALF).toFixed(2);
-  const x0 = (C + R * X0).toFixed(2), x1 = (C + R * X1).toFixed(2);
-  return `M ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} L ${x0} ${y1} Z`;
-})();
 
 /* ---------- misc ---------- */
 

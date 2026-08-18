@@ -229,6 +229,138 @@ export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 
   return result;
 }
 
+/* ---- learning from a song ---- */
+
+// Deliberately a vocabulary builder, not a lyrics viewer. The model is asked
+// for the words a song teaches — in dictionary form, with its own example
+// sentences — and is explicitly forbidden from reproducing the lyrics
+// themselves. That is both the legally clean design and the more useful one:
+// a line of a song is not a study item, but "sich sehnen nach + Dativ" is.
+const SONG_TOOL = {
+  name: 'record_song_lesson',
+  description: 'Record a vocabulary lesson built from a song.',
+  input_schema: {
+    type: 'object',
+    required: ['found', 'confidence', 'vocabulary'],
+    properties: {
+      found: {
+        type: 'boolean',
+        description: 'False if you do not actually know this song. Never guess — a fabricated lesson is worse than none.',
+      },
+      confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+      title: { type: 'string', description: 'The song title as properly spelled.' },
+      artist: { type: 'string' },
+      language: { type: 'string', description: 'Two-letter code of the language the song is actually sung in.' },
+      year: { type: 'string' },
+      genre: { type: 'string' },
+      about: {
+        type: 'string',
+        description: 'Two or three sentences on what the song is about and its mood, in your own words. Never quote it.',
+      },
+      difficulty: { type: 'integer', minimum: 1, maximum: 5, description: 'How hard the language is, 1 easy to 5 hard.' },
+      register: { type: 'string', description: 'e.g. everyday, poetic, slang-heavy, archaic, regional dialect.' },
+      vocabulary: {
+        type: 'array',
+        description: '10-25 words worth learning from this song, most useful first. Dictionary form only.',
+        items: {
+          type: 'object',
+          required: ['lemma', 'translations'],
+          properties: {
+            lemma: { type: 'string', description: 'The dictionary form, exactly as a dictionary would print it.' },
+            pos: { type: 'string' },
+            translations: {
+              type: 'object',
+              required: ['pl', 'en'],
+              properties: {
+                pl: { type: 'array', items: { type: 'string' } },
+                en: { type: 'array', items: { type: 'string' } },
+              },
+            },
+            ipa: { type: 'string' },
+            grammar: { type: 'object', additionalProperties: { type: 'string' } },
+            example: {
+              type: 'object',
+              description: 'A sentence YOU write to show the word. Never a line from the song.',
+              required: ['text'],
+              properties: { text: { type: 'string' }, pl: { type: 'string' }, en: { type: 'string' } },
+            },
+            note: { type: 'string', description: 'Why it matters in this song, or a nuance worth knowing. No quoting.' },
+            core: { type: 'boolean', description: 'True if this is everyday vocabulary rather than poetic or song-specific.' },
+          },
+        },
+      },
+      expressions: {
+        type: 'array',
+        description: 'Idioms and fixed collocations the song uses, given in their neutral dictionary form — not as they are sung.',
+        items: {
+          type: 'object',
+          required: ['expression', 'meaning'],
+          properties: {
+            expression: { type: 'string' },
+            meaning: { type: 'string' },
+            literal: { type: 'string', description: 'The word-for-word reading, when it differs amusingly from the sense.' },
+          },
+        },
+      },
+      grammarPoints: {
+        type: 'array',
+        description: 'Grammar this song is good practice for.',
+        items: {
+          type: 'object',
+          required: ['point', 'explain'],
+          properties: { point: { type: 'string' }, explain: { type: 'string' } },
+        },
+      },
+      culturalNotes: { type: 'array', items: { type: 'string' } },
+      listeningTips: {
+        type: 'array',
+        description: 'What to listen for: elisions, dialect, sounds that get swallowed when sung.',
+        items: { type: 'string' },
+      },
+    },
+  },
+};
+
+export async function analyseSong({ lang, title, artist, uiLang = 'en', level = 'B1' }) {
+  const L = LANG_PROMPTS[lang];
+  if (!L) throw new AiError('bad_language', 400);
+
+  const system = [
+    `You build ${L.name} vocabulary lessons from songs, for a learner at around CEFR ${level} whose own languages are Polish and English.`,
+    `Write all explanations in ${uiLang === 'pl' ? 'Polish' : 'English'}.`,
+    '',
+    'HARD RULE — do not reproduce the lyrics.',
+    '- Never output a line, a couplet, or a distinctive phrase as it appears in the song.',
+    '- Vocabulary must be single words in dictionary form. Expressions must be given in their neutral dictionary form, not as they are sung.',
+    '- Every example sentence must be one you wrote yourself, about something else entirely.',
+    '- Describe what the song is about in your own words. Do not paraphrase it line by line.',
+    'This is not a formality: the learner wants a glossary they can study, and a lyrics dump would be both useless and not yours to give.',
+    '',
+    'HONESTY',
+    '- If you do not genuinely know this song, set found to false. Do not assemble a plausible-looking lesson from the title.',
+    '- If you know it only vaguely, set confidence to low and include only vocabulary you are sure of.',
+    `- If the song is not actually in ${L.name}, say so in the "about" field and set the language field to what it really is.`,
+    '',
+    'WHAT MAKES A GOOD LESSON',
+    '- Lead with words the learner will meet again outside this song; mark those core: true.',
+    '- Songs are full of poetic and archaic usage. Include it, but flag it, so nobody starts speaking in lyrics.',
+    `- ${L.grammarInstruction}`,
+    '- Listening tips matter more here than anywhere else: singers elide, stretch and swallow sounds, and a learner who cannot hear the words will assume their vocabulary is at fault.',
+  ].join('\n');
+
+  const { result } = await claudeJson({
+    system,
+    content: [{
+      type: 'text',
+      text: `Song: ${title}\nArtist / band: ${artist}\nLanguage the learner is studying: ${L.name}`,
+    }],
+    tool: SONG_TOOL,
+    maxTokens: 6000,
+    model: MODEL_GOOD,
+  });
+  return result;
+}
+
 /* ---- end-of-session report ---- */
 
 const REPORT_TOOL = {
@@ -382,7 +514,7 @@ export async function recogniseInk({ lang, ink, width, height }) {
   };
   try {
     const res = await fetch('https://inputtools.google.com/request?itc=' +
-      encodeURIComponent(`${lang}-t-i0-handwrit`) + '&app=glossa', {
+      encodeURIComponent(`${lang}-t-i0-handwrit`) + '&app=lingvisto', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),

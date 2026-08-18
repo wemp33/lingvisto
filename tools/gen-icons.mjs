@@ -1,8 +1,8 @@
-// Glossa — PWA icon generator. The logo is the letter G drawn as pure geometry:
-// an annulus with a wedge cut out of its right side, plus a horizontal bar that
-// fills the wedge and runs out to the outer edge. No font, no image file, no
-// dependencies — so every size renders exactly rather than being resampled.
-//   node tools/gen-icons.mjs      (run from the glossa/ directory)
+// Lingvisto — PWA icon generator. The mark is two speech bubbles drawn as pure
+// geometry: one filled, one outlined, overlapping. Two voices rather than one —
+// which is what the app is. No font, no image file, no dependencies, so every
+// size renders exactly rather than being resampled.
+//   node tools/gen-icons.mjs      (run from the lingvisto/ directory)
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,10 +55,7 @@ function encodePNG(width, height, rgba) {
   ]);
 }
 
-/* ---------- palette ----------
-   The gradient runs top-to-bottom exactly as in the reference: a soft sea
-   green resolving into deep pine. Stops are the same three the stylesheet
-   uses, so the icon and the in-app mark are the same object.                 */
+/* ---------- palette ---------- */
 const CREAM = [0xfc, 0xfa, 0xf5];
 const STOPS = [
   { at: 0.00, rgb: [0x4f, 0x8f, 0x6e] },
@@ -79,57 +76,68 @@ function gradientAt(t) {
   return STOPS[STOPS.length - 1].rgb;
 }
 
-/* ---------- G geometry ----------
-   Everything is a fraction of the glyph's outer radius, centred on the glyph
-   square, y pointing down.
+/* ---------- bubble geometry ----------
+   Glyph space is [-1, 1] on both axes, y pointing down. The back bubble sits
+   up and left as an outline; the front one sits down and right, filled, with a
+   tail. Where the front passes over the back, the back's outline is cut with a
+   small gap so the two read as separate objects rather than one blob —
+   the same trick a sign painter uses for overlapping letters.               */
 
-   The bowl is not a constant-width ring. A letter drawn with a broad nib held
-   at a steady angle comes out thick where the pen moves across its width and
-   thin where it moves along it, which for an upright face means heavy at the
-   left and right shoulders and light over the top and under the bottom. That
-   modulation is the whole difference between a book letterform and a traced
-   circle, so it is built in rather than faked later.
+const BACK = { cx: -0.28, cy: -0.42, hw: 0.52, hh: 0.345, r: 0.165 };
+const FRONT = { cx: 0.20, cy: 0.20, hw: 0.62, hh: 0.40, r: 0.185 };
+const STROKE = 0.058;   // half-width of the back bubble's outline
+const GAP = 0.072;      // clearance cut around the front bubble
 
-   The wedge is cut from the upper-right quadrant only: below the bar the bowl
-   carries straight on, which is what stops the mark reading as a C with a
-   stick through it.                                                          */
-const R_OUT = 1.000;
-const W_MAX = 0.300;             // stroke at the shoulders (3 and 9 o'clock)
-const W_MIN = 0.112;             // stroke over the top and under the bottom
-const GAP_FROM = -34 * Math.PI / 180; // upper-right, where the wedge starts
-const GAP_TO = 0;                     // 3 o'clock, where the bar sits
-const BAR_HALF = 0.079;          // the bar is a thin stroke, as a light face
-const BAR_X0 = 0.255;            // inner terminal of the bar
-const BAR_X1 = R_OUT;            // flush with the outer edge
+// Tail of the front bubble: a triangle whose base sits well inside the body so
+// the two fuse into one shape, dropping to a point below the lower-left corner.
+// Keep the base wide relative to the drop — a long thin tail reads as a spike
+// rather than as speech, and disappears entirely at favicon size.
+const TAIL = [
+  [-0.36, 0.30],
+  [0.02, 0.30],
+  [-0.44, 0.80],
+];
 
-// Stroke width of the bowl on the ray at angle `th`. Squaring the cosine keeps
-// the thin sections thin for longer, which reads as more contrast than a plain
-// cosine at the same extremes.
-const strokeAt = (th) => W_MIN + (W_MAX - W_MIN) * Math.cos(th) ** 2;
+// Signed distance to a rounded rectangle; negative inside.
+function sdRoundRect(px, py, b) {
+  const qx = Math.abs(px - b.cx) - (b.hw - b.r);
+  const qy = Math.abs(py - b.cy) - (b.hh - b.r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - b.r;
+}
 
-// Is (x, y) — in glyph space, origin at centre, y down — inside the G?
-function insideG(x, y) {
-  const r = Math.hypot(x, y);
-  const th = Math.atan2(y, x);
-  if (r <= R_OUT && r >= R_OUT - strokeAt(th)) {
-    if (!(th > GAP_FROM && th < GAP_TO)) return true;
-  }
-  if (y >= -BAR_HALF && y <= BAR_HALF && x >= BAR_X0 && x <= BAR_X1) return true;
-  return false;
+function inTriangle(px, py, [a, b, c]) {
+  const sign = (p, q, r) => (p[0] - r[0]) * (q[1] - r[1]) - (q[0] - r[0]) * (p[1] - r[1]);
+  const d1 = sign([px, py], a, b);
+  const d2 = sign([px, py], b, c);
+  const d3 = sign([px, py], c, a);
+  const neg = d1 < 0 || d2 < 0 || d3 < 0;
+  const pos = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(neg && pos);
+}
+
+// Is (x, y) inside the mark?
+function insideMark(x, y) {
+  const dFront = sdRoundRect(x, y, FRONT);
+  const frontFilled = dFront <= 0 || inTriangle(x, y, TAIL);
+  if (frontFilled) return true;
+
+  const dBack = sdRoundRect(x, y, BACK);
+  const onBackStroke = Math.abs(dBack) <= STROKE;
+  if (!onBackStroke) return false;
+  // Cut the outline where the front bubble (or its tail) comes close.
+  if (dFront < GAP) return false;
+  if (inTriangle(x, y, TAIL.map(([tx, ty]) => [tx, ty]))) return false;
+  return true;
 }
 
 /* ---------- raster ---------- */
 const SS = 4; // supersampling factor per axis
 
-// `inset` is the fraction of the canvas the glyph's diameter occupies.
-function renderIcon(size, { inset = 0.62, background = CREAM, transparent = false } = {}) {
+function renderIcon(size, { inset = 0.70, background = CREAM, transparent = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4);
   const radiusPx = (size * inset) / 2;
   const cx = size / 2;
   const cy = size / 2;
-
-  // Vertical gradient spans the glyph's own bounding box, not the canvas, so
-  // the mark keeps the same colour ramp at every size.
   const gTop = cy - radiusPx;
   const gSpan = radiusPx * 2;
 
@@ -141,7 +149,7 @@ function renderIcon(size, { inset = 0.62, background = CREAM, transparent = fals
         for (let sx = 0; sx < SS; sx++) {
           const x = px + (sx + 0.5) / SS;
           const y = py + (sy + 0.5) / SS;
-          if (insideG((x - cx) / radiusPx, (y - cy) / radiusPx)) {
+          if (insideMark((x - cx) / radiusPx, (y - cy) / radiusPx)) {
             hits++;
             gAcc += (y - gTop) / gSpan;
           }
@@ -174,48 +182,46 @@ function renderIcon(size, { inset = 0.62, background = CREAM, transparent = fals
 }
 
 /* ---------- SVG twin ----------
-   Driven by the same constants and the same strokeAt(), so the favicon, the
-   in-app mark and the PNGs cannot drift apart. A modulated stroke has no
-   constant-width equivalent, so the bowl is emitted as a filled outline:
-   forward along the outer edge, back along the inner one.                    */
+   Same constants, expressed as real paths so the vector mark and the PNGs
+   cannot drift apart. The gap is a mask rather than a second fill, so the
+   thing works on any background including transparency.                    */
 function svgMark({ transparent = true } = {}) {
   const S = 100;
-  const R = 42;          // outer radius in SVG units
-  const c = S / 2;
-  const STEPS = 180;
+  const K = 41;          // glyph radius in SVG units
+  const C = S / 2;
+  const f = (n) => (C + n * K).toFixed(2);
+  const u = (n) => (n * K).toFixed(2);
 
-  const fx = (n) => n.toFixed(2);
-  const at = (rad, ang) => `${fx(c + rad * Math.cos(ang))} ${fx(c + rad * Math.sin(ang))}`;
+  const rrect = (b) => {
+    const x = f(b.cx - b.hw);
+    const y = f(b.cy - b.hh);
+    const w = u(b.hw * 2);
+    const h = u(b.hh * 2);
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${u(b.r)}" ry="${u(b.r)}"/>`;
+  };
+  const tail = `<polygon points="${TAIL.map(([x, y]) => `${f(x)},${f(y)}`).join(' ')}"/>`;
 
-  // The bowl runs clockwise from the bar (3 o'clock) all the way round to the
-  // top of the wedge, so the wedge itself is simply never drawn.
-  const span = Math.PI * 2 - (GAP_TO - GAP_FROM);
-  const outer = [];
-  const inner = [];
-  for (let i = 0; i <= STEPS; i++) {
-    const th = GAP_TO + (span * i) / STEPS;
-    outer.push(at(R, th));
-    inner.push(at(R * (R_OUT - strokeAt(th)), th));
-  }
-  const bowl = `M ${outer.join(' L ')} L ${inner.reverse().join(' L ')} Z`;
-
-  const y0 = fx(c - R * BAR_HALF);
-  const y1 = fx(c + R * BAR_HALF);
-  const x0 = fx(c + R * BAR_X0);
-  const x1 = fx(c + R * BAR_X1);
-  const bar = `M ${x0} ${y0} L ${x1} ${y0} L ${x1} ${y1} L ${x0} ${y1} Z`;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" role="img" aria-label="Glossa">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" role="img" aria-label="Lingvisto">
   <defs>
-    <linearGradient id="gg" x1="0" y1="${fx(c - R)}" x2="0" y2="${fx(c + R)}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4F8F6E"/>
-      <stop offset="0.52" stop-color="#2E7550"/>
-      <stop offset="1" stop-color="#0E3A23"/>
+    <linearGradient id="lg" x1="0" y1="${f(-1)}" x2="0" y2="${f(1)}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4F8F6E"/><stop offset="0.52" stop-color="#2E7550"/><stop offset="1" stop-color="#0E3A23"/>
     </linearGradient>
+    <mask id="cut">
+      <rect width="${S}" height="${S}" fill="#fff"/>
+      <g fill="#000" stroke="#000" stroke-width="${u(GAP * 2)}" stroke-linejoin="round">
+        ${rrect(FRONT)}
+        ${tail}
+      </g>
+    </mask>
   </defs>
   ${transparent ? '' : `<rect width="${S}" height="${S}" fill="#FCFAF5"/>`}
-  <path d="${bowl}" fill="url(#gg)"/>
-  <path d="${bar}" fill="url(#gg)"/>
+  <g mask="url(#cut)" fill="none" stroke="url(#lg)" stroke-width="${u(STROKE * 2)}">
+    ${rrect(BACK)}
+  </g>
+  <g fill="url(#lg)">
+    ${rrect(FRONT)}
+    ${tail}
+  </g>
 </svg>
 `;
 }
@@ -224,17 +230,15 @@ function svgMark({ transparent = true } = {}) {
 fs.mkdirSync(OUT, { recursive: true });
 
 const jobs = [
-  ['icon-180.png', 180, { inset: 0.62 }],                       // apple-touch-icon
-  ['icon-192.png', 192, { inset: 0.62 }],
-  ['icon-256.png', 256, { inset: 0.62 }],
-  ['icon-512.png', 512, { inset: 0.62 }],
-  ['icon-1024.png', 1024, { inset: 0.62 }],
-  // Maskable icons get cropped to a circle on some launchers, so the glyph
-  // sits inside the 80% safe zone and the cream runs to the edge.
-  ['icon-maskable-192.png', 192, { inset: 0.46 }],
-  ['icon-maskable-512.png', 512, { inset: 0.46 }],
-  ['favicon-64.png', 64, { inset: 0.72 }],
-  ['favicon-32.png', 32, { inset: 0.74 }],
+  ['icon-180.png', 180, { inset: 0.70 }],                       // apple-touch-icon
+  ['icon-192.png', 192, { inset: 0.70 }],
+  ['icon-256.png', 256, { inset: 0.70 }],
+  ['icon-512.png', 512, { inset: 0.70 }],
+  ['icon-1024.png', 1024, { inset: 0.70 }],
+  ['icon-maskable-192.png', 192, { inset: 0.52 }],
+  ['icon-maskable-512.png', 512, { inset: 0.52 }],
+  ['favicon-64.png', 64, { inset: 0.82 }],
+  ['favicon-32.png', 32, { inset: 0.86 }],
 ];
 
 for (const [name, size, opts] of jobs) {
@@ -244,4 +248,4 @@ for (const [name, size, opts] of jobs) {
 
 fs.writeFileSync(path.join(OUT, 'favicon.svg'), svgMark({ transparent: true }));
 fs.writeFileSync(path.join(OUT, 'mark.svg'), svgMark({ transparent: true }));
-process.stdout.write('  favicon.svg\n  mark.svg\nGlossa icons written to public/icons\n');
+process.stdout.write('  favicon.svg\n  mark.svg\nLingvisto icons written to public/icons\n');

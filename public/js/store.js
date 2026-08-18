@@ -7,10 +7,10 @@
 // data-integrity requirement here, not a convenience: losing the review log
 // would mean losing the only record of how the learner actually learns.
 
-const DB_NAME = 'glossa';
+const DB_NAME = 'lingvisto';
 const DB_VERSION = 1;
 
-export const KINDS = ['word', 'card', 'page', 'log', 'pref', 'convo'];
+export const KINDS = ['word', 'card', 'page', 'log', 'pref', 'convo', 'song'];
 
 let dbPromise = null;
 
@@ -313,7 +313,7 @@ export async function exportAll() {
   const t = db.transaction('records', 'readonly');
   const rows = await reqP(t.objectStore('records').getAll());
   return {
-    app: 'glossa',
+    app: 'lingvisto',
     version: 1,
     exportedAt: new Date().toISOString(),
     records: rows.map(({ kind, id, updatedAt, deleted, data }) => ({ kind, id, updatedAt, deleted, data })),
@@ -321,8 +321,8 @@ export async function exportAll() {
 }
 
 export async function importAll(payload) {
-  if (!payload || payload.app !== 'glossa' || !Array.isArray(payload.records)) {
-    throw new Error('not_a_glossa_backup');
+  if (!payload || payload.app !== 'lingvisto' || !Array.isArray(payload.records)) {
+    throw new Error('not_a_lingvisto_backup');
   }
   const items = payload.records.filter((r) => KINDS.includes(r.kind) && r.id);
   await putMany(items, { dirty: true });

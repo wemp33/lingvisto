@@ -109,7 +109,7 @@ export function tutorInstructions({
   if (glossary.length) {
     lines.push(
       '',
-      'THEIR GLOSSARY',
+      'THEIR LINGVISTORY',
       `These are words the learner has saved and is trying to learn. Work them into the conversation naturally where they fit — this is the point of the exercise. Do not list them, quiz them mechanically, or force more than a few into one session.`,
       glossary.slice(0, 200).map((w) => `- ${w.term}${w.gloss ? ` (${w.gloss})` : ''}`).join('\n'),
     );

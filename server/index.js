@@ -1,4 +1,4 @@
-// Glossa server: serves the PWA and the handful of endpoints that need a
+// Lingvisto server: serves the PWA and the handful of endpoints that need a
 // secret. Plain node:http with a tiny router — the only dependency in the whole
 // project is `pg`.
 import http from 'node:http';
@@ -277,6 +277,22 @@ const ROUTES = {
     res.end(audio);
   },
 
+  'POST /api/ai/song': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    if (!body.title || !body.artist) return fail(res, 400, 'no_song');
+    const out = await ai.analyseSong({
+      lang: body.lang,
+      title: String(body.title).slice(0, 200).trim(),
+      artist: String(body.artist).slice(0, 200).trim(),
+      uiLang: body.uiLang,
+      level: body.level,
+    });
+    bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
+    send(res, 200, out);
+  },
+
   'POST /api/ai/report': async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -329,7 +345,7 @@ async function start() {
   console.log('database ready');
   if (!ai.hasOpenAI()) console.warn('OPENAI_API_KEY missing — the talking tutor and word audio are disabled.');
   if (!ai.hasAnthropic()) console.warn('ANTHROPIC_API_KEY missing — word checking and handwriting critique are disabled.');
-  server.listen(PORT, () => console.log(`Glossa listening on :${PORT}`));
+  server.listen(PORT, () => console.log(`Lingvisto listening on :${PORT}`));
 }
 
 const shutdown = () => {

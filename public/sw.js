@@ -4,7 +4,7 @@
 // replayed sync response would be worse than an honest failure, and the app
 // already holds its own copy of everything in IndexedDB.
 
-const VERSION = 'glossa-v1';
+const VERSION = 'lingvisto-v1';
 const SHELL = [
   './',
   './index.html',
@@ -22,6 +22,7 @@ const SHELL = [
   './js/glossary.js',
   './js/write.js',
   './js/review.js',
+  './js/songs.js',
   './icons/favicon.svg',
   './icons/icon-180.png',
   './icons/icon-192.png',

@@ -106,6 +106,25 @@ http.createServer(async (req, res) => {
       return json(res, 200, { reading: '[dev]', legible: true, verdict: 'close', comment: 'Dev server: no model was called.', issues: [] });
     }
     if (p === '/api/ai/ink') return json(res, 200, { candidates: [] });
+    if (p === '/api/ai/song') {
+      return json(res, 200, {
+        found: true, confidence: 'high',
+        title: body.title, artist: body.artist, language: body.lang, year: '1984', genre: 'dev',
+        about: '[dev] No model was called. This is placeholder text standing in for a description.',
+        difficulty: 3, register: 'everyday',
+        vocabulary: [
+          { lemma: '[dev] Wort', pos: 'noun', translations: { pl: ['[dev] słowo'], en: ['[dev] word'] },
+            grammar: { article: 'das' }, example: { text: '[dev] Beispiel.', pl: '[dev]', en: '[dev]' },
+            note: 'dev stub', core: true },
+          { lemma: '[dev] sehnen', pos: 'verb', translations: { pl: ['[dev] tęsknić'], en: ['[dev] to long'] },
+            example: { text: '[dev] Beispiel.', pl: '[dev]', en: '[dev]' }, core: false },
+        ],
+        expressions: [{ expression: '[dev] etwas im Griff haben', meaning: '[dev] to have it under control' }],
+        grammarPoints: [{ point: '[dev] Dativ', explain: '[dev] placeholder' }],
+        culturalNotes: ['[dev] placeholder'],
+        listeningTips: ['[dev] placeholder'],
+      });
+    }
     if (p === '/api/ai/report') return json(res, 200, { summary: '[dev] no model was called.', corrections: [], newWords: [] });
     if (p === '/api/ai/realtime-session') return json(res, 503, { error: 'no_key' });
     if (p === '/api/ai/speak') return json(res, 503, { error: 'no_key' });
@@ -125,4 +144,4 @@ http.createServer(async (req, res) => {
     'cache-control': 'no-store',
   });
   fs.createReadStream(full).pipe(res);
-}).listen(PORT, () => console.log(`Glossa UI harness on http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Lingvisto UI harness on http://localhost:${PORT}`));

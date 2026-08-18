@@ -392,7 +392,7 @@ function openSettings() {
       const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `glossa-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `lingvisto-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     },
@@ -433,7 +433,7 @@ function openSettings() {
   body.append(data);
 
   body.append(el('div.note', {
-    text: `Glossa · ${t('set.version')} 1.0.0${isStandalone() ? '' : ' · ' + t('install.hint')}`,
+    text: `Lingvisto · ${t('set.version')} 1.0.0${isStandalone() ? '' : ' · ' + t('install.hint')}`,
     style: { textAlign: 'center', marginTop: '22px' },
   }));
 
@@ -719,5 +719,5 @@ async function start() {
 
 start().catch((e) => {
   console.error(e);
-  document.body.innerHTML = '<p style="padding:32px;font-family:Georgia,serif">Glossa failed to start.</p>';
+  document.body.innerHTML = '<p style="padding:32px;font-family:Georgia,serif">Lingvisto failed to start.</p>';
 });

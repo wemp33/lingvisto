@@ -1,6 +1,6 @@
 {
-  "name": "Glossa",
-  "short_name": "Glossa",
+  "name": "Lingvisto",
+  "short_name": "Lingvisto",
   "description": "An AI language tutor you talk to, write for, and build a glossary with.",
   "start_url": "./",
   "scope": "./",

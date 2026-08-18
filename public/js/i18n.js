@@ -4,7 +4,7 @@ import * as store from './store.js';
 
 const STRINGS = {
   en: {
-    'app.name': 'Glossa',
+    'app.name': 'Lingvisto',
     'app.tagline': 'Talk, write, remember.',
 
     'tab.talk': 'Talk', 'tab.words': 'Words', 'tab.write': 'Write', 'tab.review': 'Review',
@@ -17,7 +17,7 @@ const STRINGS = {
     'lang.learning': 'Learning', 'lang.switch': 'Switch language',
 
     /* onboarding + account */
-    'acct.welcome': 'Welcome to Glossa',
+    'acct.welcome': 'Welcome to Lingvisto',
     'acct.blurb': 'A tutor you talk to, a page you write on, and a glossary that remembers for you.',
     'acct.nickname': 'Nickname', 'acct.code': '6-digit code',
     'acct.signIn': 'Sign in', 'acct.create': 'Create account',
@@ -60,7 +60,7 @@ const STRINGS = {
     'talk.noCorrections': 'Nothing to correct yet.',
     'talk.report': 'Session report', 'talk.reportWait': 'Writing your report…',
     'talk.saveWord': 'Add to glossary',
-    'talk.micDenied': 'Glossa needs the microphone. Allow it in Settings → Glossa → Microphone.',
+    'talk.micDenied': 'Lingvisto needs the microphone. Allow it in Settings → Lingvisto → Microphone.',
     'talk.micLost': 'The microphone stopped responding. Tap to reconnect.',
     'talk.usesGlossary': 'Your tutor knows your {n} saved words and will work them in.',
     'talk.transcript': 'Transcript',
@@ -88,8 +88,8 @@ const STRINGS = {
     'gl.confidence': 'Confidence',
 
     /* keyboard */
-    'kb.title': 'Keyboard', 'kb.hint': 'iOS will not let a web app switch your system keyboard, so Glossa brings its own.',
-    'kb.system': 'Use the system keyboard', 'kb.glossa': 'Use the Glossa keyboard',
+    'kb.title': 'Keyboard', 'kb.hint': 'iOS will not let a web app switch your system keyboard, so Lingvisto brings its own.',
+    'kb.system': 'Use the system keyboard', 'kb.lingvisto': 'Use the Lingvisto keyboard',
     'kb.translit': 'Type in Latin letters', 'kb.translitHint': 'privet → привет',
     'kb.stress': 'Stress mark',
 
@@ -101,7 +101,7 @@ const STRINGS = {
     'wr.looksGood': 'That reads correctly.',
     'wr.pencilOnly': 'Apple Pencil only',
     'wr.pencilOnlyHint': 'Ignore fingers and palm while writing.',
-    'wr.phoneNote': 'Apple Pencil does not work on iPhone — this page is finger-drawing here. Open Glossa on your iPad for proper handwriting practice.',
+    'wr.phoneNote': 'Apple Pencil does not work on iPhone — this page is finger-drawing here. Open Lingvisto on your iPad for proper handwriting practice.',
     'wr.guides': 'Guide lines', 'wr.guideNone': 'Blank', 'wr.guideRuled': 'Ruled', 'wr.guideFourLine': 'Four-line',
     'wr.cursive': 'Cursive', 'wr.print': 'Print',
     'wr.iRead': 'I read', 'wr.target': 'Target',
@@ -125,6 +125,24 @@ const STRINGS = {
     'rv.progressToday': '{done} of {total} today',
     'rv.streak': '{n}-day streak',
 
+    /* songs */
+    'sg.title': 'Learn from a song', 'sg.short': 'Songs',
+    'sg.song': 'Song title', 'sg.artist': 'Band or artist',
+    'sg.analyse': 'Build the lesson', 'sg.analysing': 'Listening through it…',
+    'sg.notFound': 'I do not know that song well enough to teach from it.',
+    'sg.notFoundHint': 'Check the spelling, or try a better-known song by the same artist. I will not invent a lesson.',
+    'sg.lowConfidence': 'I only half-know this one — check anything that looks odd.',
+    'sg.wrongLang': 'This song does not seem to be in {lang}.',
+    'sg.noLyrics': 'Vocabulary only — Lingvisto does not show lyrics.',
+    'sg.about': 'What it is about', 'sg.vocab': 'Vocabulary', 'sg.expressions': 'Expressions',
+    'sg.grammar': 'Grammar it practises', 'sg.culture': 'Worth knowing', 'sg.listening': 'Listen out for',
+    'sg.addAll': 'Add all {n}', 'sg.addCore': 'Add the {n} everyday ones', 'sg.added': 'Added {n} words',
+    'sg.core': 'everyday', 'sg.poetic': 'poetic',
+    'sg.difficulty': 'Difficulty', 'sg.register': 'Register',
+    'sg.mySongs': 'Your songs', 'sg.noSongs': 'No songs yet.',
+    'sg.reopen': 'Open', 'sg.fromSong': 'from a song',
+    'sg.deleteWarn': 'Remove this song? Words you already added stay in your glossary.',
+
     /* settings */
     'set.title': 'Settings',
     'set.interface': 'Interface language', 'set.learning': 'Languages I am learning',
@@ -144,11 +162,11 @@ const STRINGS = {
     'time.now': 'now', 'time.min': '{n} min', 'time.hour': '{n} h', 'time.day': '{n} d',
     'time.month': '{n} mo', 'time.year': '{n} yr',
     'offline.banner': 'Offline — changes are saved here and will sync later.',
-    'install.hint': 'Add Glossa to your Home Screen for the full-screen version.',
+    'install.hint': 'Add Lingvisto to your Home Screen for the full-screen version.',
   },
 
   pl: {
-    'app.name': 'Glossa',
+    'app.name': 'Lingvisto',
     'app.tagline': 'Mów, pisz, pamiętaj.',
 
     'tab.talk': 'Rozmowa', 'tab.words': 'Słowa', 'tab.write': 'Pismo', 'tab.review': 'Powtórki',
@@ -160,7 +178,7 @@ const STRINGS = {
 
     'lang.learning': 'Uczę się', 'lang.switch': 'Zmień język',
 
-    'acct.welcome': 'Witaj w Glossie',
+    'acct.welcome': 'Witaj w Lingvisto',
     'acct.blurb': 'Nauczyciel, z którym rozmawiasz, kartka, na której piszesz, i słownik, który pamięta za ciebie.',
     'acct.nickname': 'Pseudonim', 'acct.code': 'Kod 6-cyfrowy',
     'acct.signIn': 'Zaloguj się', 'acct.create': 'Załóż konto',
@@ -202,7 +220,7 @@ const STRINGS = {
     'talk.noCorrections': 'Na razie nie ma czego poprawiać.',
     'talk.report': 'Podsumowanie', 'talk.reportWait': 'Piszę podsumowanie…',
     'talk.saveWord': 'Dodaj do słownika',
-    'talk.micDenied': 'Glossa potrzebuje mikrofonu. Zezwól w Ustawieniach → Glossa → Mikrofon.',
+    'talk.micDenied': 'Lingvisto potrzebuje mikrofonu. Zezwól w Ustawieniach → Lingvisto → Mikrofon.',
     'talk.micLost': 'Mikrofon przestał odpowiadać. Dotknij, by połączyć ponownie.',
     'talk.usesGlossary': 'Nauczyciel zna twoje {n} zapisanych słów i będzie je wplatał.',
     'talk.transcript': 'Zapis rozmowy',
@@ -228,8 +246,8 @@ const STRINGS = {
     'gl.listen': 'Posłuchaj', 'gl.listenSlow': 'Wolno',
     'gl.confidence': 'Pewność',
 
-    'kb.title': 'Klawiatura', 'kb.hint': 'iOS nie pozwala stronie zmieniać klawiatury systemowej, więc Glossa ma własną.',
-    'kb.system': 'Klawiatura systemowa', 'kb.glossa': 'Klawiatura Glossy',
+    'kb.title': 'Klawiatura', 'kb.hint': 'iOS nie pozwala stronie zmieniać klawiatury systemowej, więc Lingvisto ma własną.',
+    'kb.system': 'Klawiatura systemowa', 'kb.lingvisto': 'Klawiatura Lingvisto',
     'kb.translit': 'Pisz literami łacińskimi', 'kb.translitHint': 'privet → привет',
     'kb.stress': 'Akcent',
 
@@ -240,7 +258,7 @@ const STRINGS = {
     'wr.looksGood': 'Czyta się poprawnie.',
     'wr.pencilOnly': 'Tylko Apple Pencil',
     'wr.pencilOnlyHint': 'Ignoruj palce i dłoń podczas pisania.',
-    'wr.phoneNote': 'Apple Pencil nie działa na iPhonie — tutaj rysujesz palcem. Otwórz Glossę na iPadzie, żeby ćwiczyć pismo naprawdę.',
+    'wr.phoneNote': 'Apple Pencil nie działa na iPhonie — tutaj rysujesz palcem. Otwórz Lingvisto na iPadzie, żeby ćwiczyć pismo naprawdę.',
     'wr.guides': 'Linie pomocnicze', 'wr.guideNone': 'Gładka', 'wr.guideRuled': 'W linie', 'wr.guideFourLine': 'Cztery linie',
     'wr.cursive': 'Kursywa', 'wr.print': 'Drukowane',
     'wr.iRead': 'Odczytuję', 'wr.target': 'Cel',
@@ -263,6 +281,24 @@ const STRINGS = {
     'rv.progressToday': '{done} z {total} dzisiaj',
     'rv.streak': 'seria: {n} dni',
 
+    /* songs */
+    'sg.title': 'Ucz się z piosenki', 'sg.short': 'Piosenki',
+    'sg.song': 'Tytuł piosenki', 'sg.artist': 'Zespół lub wykonawca',
+    'sg.analyse': 'Zbuduj lekcję', 'sg.analysing': 'Przesłuchuję…',
+    'sg.notFound': 'Nie znam tej piosenki na tyle, żeby z niej uczyć.',
+    'sg.notFoundHint': 'Sprawdź pisownię albo spróbuj bardziej znanej piosenki tego wykonawcy. Nie wymyślę lekcji.',
+    'sg.lowConfidence': 'Znam ją tylko połowicznie — sprawdź, co wygląda dziwnie.',
+    'sg.wrongLang': 'Ta piosenka chyba nie jest po {lang}.',
+    'sg.noLyrics': 'Tylko słownictwo — Lingvisto nie pokazuje tekstów piosenek.',
+    'sg.about': 'O czym jest', 'sg.vocab': 'Słownictwo', 'sg.expressions': 'Zwroty',
+    'sg.grammar': 'Gramatyka do przećwiczenia', 'sg.culture': 'Warto wiedzieć', 'sg.listening': 'Wsłuchaj się w',
+    'sg.addAll': 'Dodaj wszystkie ({n})', 'sg.addCore': 'Dodaj {n} codziennych', 'sg.added': 'Dodano słów: {n}',
+    'sg.core': 'codzienne', 'sg.poetic': 'poetyckie',
+    'sg.difficulty': 'Trudność', 'sg.register': 'Rejestr',
+    'sg.mySongs': 'Twoje piosenki', 'sg.noSongs': 'Jeszcze nie ma piosenek.',
+    'sg.reopen': 'Otwórz', 'sg.fromSong': 'z piosenki',
+    'sg.deleteWarn': 'Usunąć tę piosenkę? Dodane już słowa zostają w słowniku.',
+
     'set.title': 'Ustawienia',
     'set.interface': 'Język interfejsu', 'set.learning': 'Języki, których się uczę',
     'set.account': 'Konto', 'set.study': 'Nauka', 'set.data': 'Dane', 'set.about': 'O aplikacji',
@@ -280,7 +316,7 @@ const STRINGS = {
     'time.now': 'teraz', 'time.min': '{n} min', 'time.hour': '{n} godz.', 'time.day': '{n} dni',
     'time.month': '{n} mies.', 'time.year': '{n} lat',
     'offline.banner': 'Offline — zmiany są zapisane tutaj i zsynchronizują się później.',
-    'install.hint': 'Dodaj Glossę do ekranu początkowego, żeby mieć wersję pełnoekranową.',
+    'install.hint': 'Dodaj Lingvisto do ekranu początkowego, żeby mieć wersję pełnoekranową.',
   },
 };
 

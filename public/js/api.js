@@ -2,8 +2,8 @@
 // localStorage rather than an httpOnly cookie so the service worker and the
 // installed PWA both see it without a cookie round trip.
 
-const TOKEN_KEY = 'glossa.token';
-const USER_KEY = 'glossa.user';
+const TOKEN_KEY = 'lingvisto.token';
+const USER_KEY = 'lingvisto.user';
 
 let token = localStorage.getItem(TOKEN_KEY) || null;
 let user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
@@ -157,6 +157,10 @@ export async function speak(text, lang, { slow = false } = {}) {
   speechCache.set(k, url);
   return url;
 }
+
+// Song analysis is a long call — it builds a whole lesson in one shot.
+export const analyseSong = (payload) =>
+  req('/ai/song', { method: 'POST', body: payload, timeout: 120_000 });
 
 export const sessionReport = (payload) =>
   req('/ai/report', { method: 'POST', body: payload, timeout: 60_000 });
