@@ -72,6 +72,13 @@ appear to need two reloads.
 
 ### Deploying to Railway
 
+Live at <https://lingvisto-production.up.railway.app> (project `glossa`,
+service `lingvisto`).
+
+Always pass `--service` and check `railway status` first: the CLI's linked
+project can drift between commands, and an unqualified `railway add` will
+happily create a service in whichever project it thinks it is pointing at.
+
 1. `railway init` in this directory, then add a Postgres database to the project.
 2. Set `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` as service variables.
    `DATABASE_URL` is injected by the Postgres plugin.
