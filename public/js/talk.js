@@ -18,6 +18,7 @@ import * as store from './store.js';
 import { t, uiLang } from './i18n.js';
 import { LANGS } from './lang.js';
 import { el, clear, toast, toastError, tap } from './ui.js';
+import { mountComposer } from './chat.js';
 
 const REALTIME_URL = 'https://api.openai.com/v1/realtime/calls';
 
@@ -275,6 +276,19 @@ export class TutorSession extends EventTarget {
     this.setState('speaking');
   }
 
+  // A typed line, injected into the live session. The tutor answers out loud,
+  // so speaking and typing stay one conversation rather than two.
+  sendText(text) {
+    if (this.dc?.readyState !== 'open') return false;
+    this.dc.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] },
+    }));
+    this.dc.send(JSON.stringify({ type: 'response.create' }));
+    this._upsert('me', text, false, true);
+    return true;
+  }
+
   // Barge-in: cancel whatever the tutor is saying and drop the queued audio.
   interrupt() {
     if (this.dc?.readyState !== 'open') return;
@@ -360,14 +374,33 @@ export function renderTalk(root, ctx) {
   wrap.append(stage, rail);
   root.append(wrap);
 
+  // Typing works whether or not a voice session is live. With one running the
+  // text goes into it and is answered aloud; without one it runs as a text
+  // conversation with the same tutor, which needs no microphone at all.
+  let chatTurns = [];
+  const composer = mountComposer(wrap, ctx, {
+    lang,
+    sendVoice: () => (session && session.state !== 'ended'
+      ? (text) => session.sendText(text)
+      : null),
+    onTurns: (turns, busy) => { chatTurns = turns; paintAll(busy); },
+  });
+
   let session = null;
   let objective = '';
 
   const setLabel = (text) => { orb.querySelector('.label').textContent = text; };
 
-  const paintTurns = () => {
+  const paintAll = (busy = false) => {
+    const source = session ? session.turns : chatTurns;
+    paintList(source, busy);
+  };
+
+  const paintTurns = () => paintList(session ? session.turns : chatTurns, false);
+
+  const paintList = (turns, busy) => {
     clear(rail);
-    for (const turn of session.turns) {
+    for (const turn of turns) {
       if (!turn.text?.trim()) continue;
       const node = el(`div.turn.${turn.who}${turn.partial ? '.partial' : ''}`);
       node.append(el('span.who', { text: turn.who === 'me' ? '·' : 'G' }));
@@ -379,6 +412,12 @@ export function renderTalk(root, ctx) {
       }
       node.append(txt);
       rail.append(node);
+    }
+    if (busy) {
+      rail.append(el('div.turn.tutor', {}, [
+        el('span.who', { text: 'L' }),
+        el('span.text', {}, [el('span.spinner.dark')]),
+      ]));
     }
     rail.scrollTop = rail.scrollHeight;
   };

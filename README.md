@@ -34,11 +34,23 @@ songs are full of, so nobody starts speaking in lyrics. Pick what you want and
 it joins the same glossary and the same review queue, tagged with where it came
 from.
 
+**Type instead of talk** — the same tutor, in writing, on the same screen. It
+runs on Claude rather than the realtime model, so it needs no microphone and no
+OpenAI key, and it has the same tools: "add that word" works whether you say it
+or type it. With a voice session live, what you type goes into it and is
+answered aloud, so the two stay one conversation.
+
 **Photos and files** — point the camera at a menu, a street sign, a page of a
 book or a screenshot, pick an image or text file, or paste text straight in.
 The words come back in dictionary form with translations, keeping the printed
 form alongside so you can match an entry to what you were looking at. Anything
 the model could not read confidently arrives flagged and unticked.
+
+**A writing coach** — it sets one thing to write, reads what you wrote, and
+sets the next one in light of what actually happened. Tasks come from your
+glossary and what is due, on a topic you choose or one it picks. The
+instruction can be read aloud in your own language, so you hear the task and
+produce the target language by hand.
 
 **Review** — spaced repetition over four separate skills per word: recognising
 it, producing it, saying it, and writing it by hand.
@@ -213,6 +225,22 @@ it); `getCoalescedEvents()`, because Pencil samples at 240 Hz while
 `desynchronized` canvas for the wet stroke; and ignoring touch entirely once a
 pen has been seen, because Safari will otherwise draw a line from your resting
 palm to the pen tip.
+
+**The schedule can be fitted to you.** After a few hundred reviews, *Settings →
+Tune to my memory* refits the FSRS parameters to your own history by coordinate
+descent on log loss, server-side. Three honesty rules make it worth trusting:
+below 400 reviews it refuses and says how many more are needed, the tuned set is
+only accepted if it beats the defaults on **held-out** cards, and if your
+history already matches the standard schedule it says so rather than
+manufacturing a change. On a synthetic learner who forgets faster than average
+it recovers a 6.7% improvement in held-out predictions; on an average one it
+leaves the defaults alone.
+
+**Load is balanced, not just fuzzed.** Fuzz scatters due dates at random, which
+still lets three cards land on a day that already has eighty. New due dates are
+placed on the quietest day within a small window instead, which flattens the
+daily load without moving anything far enough to matter to memory. A 200-card
+day is what makes people quit.
 
 **FSRS-6 is ported from the reference, not approximated.** The difficulty
 mean-reversion target is computed *unclamped* and evaluates to −4.7716;

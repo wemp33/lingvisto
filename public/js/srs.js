@@ -61,7 +61,9 @@ export class Scheduler {
 
   // Probability the card is still recallable after `elapsedDays`.
   retrievability(card, now = Date.now()) {
-    if (!card.lastReview || card.stability == null) return 0;
+    // Compare against null, not falsiness: a lastReview of 0 is a real
+    // timestamp and would otherwise report the card as entirely forgotten.
+    if (card.lastReview == null || card.stability == null) return 0;
     const elapsedDays = Math.max(0, (now - card.lastReview) / DAY);
     return (1 + this.FACTOR * elapsedDays / card.stability) ** this.DECAY;
   }
@@ -334,6 +336,47 @@ export function disperseSiblings(cards, justScheduled, minGapDays = 2) {
     }
   }
   return out;
+}
+
+// Spread a new due date onto whichever of the nearby days is least busy.
+//
+// Fuzz stops everything learnt in one sitting from clumping, but it is blind —
+// it scatters at random and can pile three cards onto a day that already has
+// eighty. This looks at what is actually scheduled and picks the quietest day
+// in the window, which flattens the daily load without moving anything far
+// enough to matter to memory. A 200-card day is what makes people quit.
+export function loadBalance(intervalMs, dueByDay, { now = Date.now(), spread = 0.12 } = {}) {
+  const DAY = 86_400_000;
+  const days = intervalMs / DAY;
+  if (days < 3) return intervalMs;
+
+  const window = Math.max(1, Math.round(days * spread));
+  const target = Math.round(days);
+  let best = target;
+  let bestLoad = Infinity;
+
+  for (let d = target - window; d <= target + window; d++) {
+    if (d < 1) continue;
+    const key = Math.floor((now + d * DAY) / DAY);
+    const load = dueByDay.get(key) || 0;
+    // Prefer the quietest day, and the one nearest the ideal interval when
+    // several are equally quiet.
+    const score = load + Math.abs(d - target) * 0.35;
+    if (score < bestLoad) { bestLoad = score; best = d; }
+  }
+  return best * DAY;
+}
+
+// How many cards fall on each day, keyed by day number.
+export function dueHistogram(cards, now = Date.now()) {
+  const DAY = 86_400_000;
+  const map = new Map();
+  for (const c of cards) {
+    if (c.suspended || c.due <= now) continue;
+    const key = Math.floor(c.due / DAY);
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return map;
 }
 
 export function buildQueue(cards, { newPerDay = 20, maxReviews = 200, now = Date.now() } = {}) {

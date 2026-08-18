@@ -117,6 +117,33 @@ http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, last4: String(body.key).slice(-4) });
     }
     if (p === '/api/keys' && req.method === 'DELETE') return json(res, 200, { ok: true });
+    if (p === '/api/srs/optimise') {
+      return json(res, 200, { enough: false, reviews: 12, needed: 400, retention: { retention: null, n: 0 } });
+    }
+    if (p === '/api/ai/writing-task') {
+      return json(res, 200, {
+        task: '[dev] Write: the window is open', spoken: '[dev] Write the window is open',
+        expect: '[dev] Das Fenster ist offen', mode: 'sentence',
+        hint: '[dev] hint', why: '[dev] because', targetWords: ['[dev] das Fenster'],
+      });
+    }
+    if (p === '/api/ai/chat') {
+      const last = (body.messages || []).slice(-1)[0];
+      const said = JSON.stringify(last?.content || '');
+      const wantsTool = /add|dodaj/i.test(said);
+      if (wantsTool) {
+        return json(res, 200, {
+          text: '', stopReason: 'tool_use',
+          toolCalls: [{ id: 'tu_dev', name: 'add_word', input: { term: '[dev] der Tisch', gloss: '[dev] stół' } }],
+          raw: [{ type: 'tool_use', id: 'tu_dev', name: 'add_word', input: { term: '[dev] der Tisch', gloss: '[dev] stół' } }],
+        });
+      }
+      return json(res, 200, {
+        text: '[dev] Guten Tag! No model was called.',
+        toolCalls: [], stopReason: 'end_turn',
+        raw: [{ type: 'text', text: '[dev] Guten Tag! No model was called.' }],
+      });
+    }
     if (p === '/api/ai/extract') {
       const imgs = (body.images || []).length;
       return json(res, 200, {

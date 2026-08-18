@@ -10,9 +10,10 @@ import * as store from './store.js';
 import * as api from './api.js';
 import { InkSurface, INKS, TOOLS, makeScribbleWatcher } from './ink.js';
 import { LANGS } from './lang.js';
-import { allWords } from './glossary.js';
+import { allWords, glossaryForTutor } from './glossary.js';
+import { dueWordsForTutor } from './review.js';
 import { t, uiLang } from './i18n.js';
-import { el, clear, toast, toastError, confirmAction, tap, debounce, isIPhone } from './ui.js';
+import { el, clear, sheet, toast, toastError, confirmAction, tap, debounce, isIPhone } from './ui.js';
 
 const CRITIQUE_DELAY = 900;   // pen-up quiet before the tutor speaks up
 
@@ -41,6 +42,11 @@ export function renderWrite(root, ctx) {
   let target = null;          // the word the learner was asked to write
   let critiqueCard = null;
   let pageId = store.uid();
+
+  // Coach mode: the tutor sets a task, reads what was written, and sets the
+  // next one. Kept as a session, so each task is chosen in light of the last.
+  let coach = null;           // { task, topic, recent[], struggles[] }
+  let speaking = false;
 
   const surface = new InkSurface(
     { wrap: canvasWrap, dry, wet, guides, ghost },
@@ -134,7 +140,28 @@ export function renderWrite(root, ctx) {
     onclick: pickPracticeWord,
   });
 
-  tools.append(penB, fineB, markB, eraseB, ...swatches, undoB, clearB, guideB, pencilB, tutorB, practiceB);
+  const coachB = el('button.tool', {
+    text: '◎ ' + t('wc.start'),
+    'aria-pressed': 'false',
+    onclick: () => (coach ? stopCoach() : startCoach()),
+  });
+
+  const topicB = el('button.tool', {
+    text: '# ' + t('wc.topic'),
+    onclick: setTopic,
+  });
+
+  const speakB = el('button.tool', {
+    text: '🔊',
+    'aria-pressed': 'true',
+    title: t('wc.readAloud'),
+    onclick: (e) => {
+      speaking = !speaking;
+      e.currentTarget.setAttribute('aria-pressed', String(speaking));
+    },
+  });
+
+  tools.append(penB, fineB, markB, eraseB, ...swatches, undoB, clearB, guideB, pencilB, tutorB, coachB, topicB, speakB, practiceB);
 
   function refreshTools() {
     for (const b of [penB, fineB, markB]) {
@@ -142,6 +169,146 @@ export function renderWrite(root, ctx) {
     }
     eraseB.setAttribute('aria-pressed', String(surface.erasing));
     swatches.forEach((s, i) => s.setAttribute('aria-pressed', String(INKS[i] === surface.colour)));
+  }
+
+  /* ── the coach ───────────────────────────────────────────────────────── */
+  //
+  // A loop: it sets one thing to write, you write it, it reads the ink and
+  // sets the next one based on what actually happened. The task and the
+  // critique come back from a single call, so the next instruction arrives
+  // with the feedback rather than a round trip later.
+
+  async function startCoach() {
+    coach = { task: null, topic: '', recent: [], struggles: [] };
+    coachB.setAttribute('aria-pressed', 'true');
+    coachB.textContent = '◎ ' + t('wc.stop');
+    surface.clearInk();
+    hideCritique();
+    await nextTask();
+  }
+
+  function stopCoach() {
+    coach = null;
+    coachB.setAttribute('aria-pressed', 'false');
+    coachB.textContent = '◎ ' + t('wc.start');
+    setTarget(null);
+    hideCritique();
+  }
+
+  function setTopic() {
+    // A sheet rather than prompt(): an installed PWA on iOS renders the native
+    // dialog badly and can suppress it outright.
+    const input = el('input.input', {
+      type: 'text',
+      value: coach?.topic || '',
+      placeholder: t('wc.topicPlaceholder'),
+      autocapitalize: 'sentences',
+    });
+    const apply = async (topic) => {
+      h.close();
+      if (!coach) await startCoach();
+      coach.topic = topic;
+      // A new topic invalidates the tasks queued for the old one.
+      coach.recent = [];
+      coach.struggles = [];
+      surface.clearInk();
+      await nextTask();
+    };
+    const body = el('div', {}, [
+      el('div.field', {}, [el('label', { text: t('wc.topic') }), input]),
+      el('div.hint', { text: t('wc.topicPrompt') }),
+      el('div.btnrow', {}, [
+        el('button.btn.quiet', { text: t('wc.anything'), onclick: () => apply('') }),
+        el('button.btn', { text: t('act.continue'), onclick: () => apply(input.value.trim()) }),
+      ]),
+    ]);
+    const h = sheet({ title: t('wc.topic'), body });
+    setTimeout(() => input.focus(), 340);
+  }
+
+  async function nextTask() {
+    if (!coach) return;
+    showTask({ pending: true });
+    try {
+      const [glossary, due] = await Promise.all([
+        glossaryForTutor(lang, 60),
+        dueWordsForTutor(lang, 20),
+      ]);
+      const task = await api.writingTask({
+        lang,
+        uiLang: uiLang(),
+        level: ctx.level(),
+        topic: coach.topic,
+        glossary: glossary.map((g) => g.term),
+        dueWords: due.map((d) => d.term),
+        recent: coach.recent,
+        struggles: coach.struggles,
+      });
+      applyTask(task);
+    } catch (e) {
+      showTask({ error: true });
+      if (e.code !== 'offline') toastError(e);
+    }
+  }
+
+  function applyTask(task) {
+    if (!coach || !task?.task) return;
+    coach.task = task;
+    coach.recent.push(task.task);
+    surface.clearInk();
+    hideCritique();
+    showTask({ task });
+    if (speaking) speakTask(task);
+  }
+
+  // The instruction is in the learner's own language, so it goes through the
+  // browser's built-in voice rather than the paid one. That voice is not good
+  // enough to model a foreign accent — which is why it is never used for the
+  // target language — but for hearing "write: I am going to the station" in
+  // your own tongue it is perfectly adequate, free, offline, and instant.
+  function speakTask(task) {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    try {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(task.spoken || task.task);
+      u.lang = uiLang() === 'pl' ? 'pl-PL' : 'en-GB';
+      u.rate = 0.95;
+      synth.speak(u);
+    } catch { /* the task is on screen regardless */ }
+  }
+
+  function showTask({ task = null, pending = false, error = false }) {
+    clear(promptBar);
+    promptBar.style.pointerEvents = 'auto';
+    if (pending) {
+      promptBar.append(el('span.spinner.dark'), el('span', { text: ' ' + t('wc.thinking') }));
+      return;
+    }
+    if (error) {
+      promptBar.append(el('span', { text: t('err.generic') }));
+      return;
+    }
+    if (!task) return;
+    promptBar.append(
+      el('span', {
+        text: task.task,
+        style: { color: 'var(--ink)', fontFamily: 'var(--ui)', fontSize: '14.5px', fontWeight: '600', textAlign: 'center' },
+      }),
+      task.hint
+        ? el('button', {
+          text: '?',
+          style: { color: 'var(--faint)', padding: '0 8px', fontSize: '15px' },
+          onclick: () => toast(task.hint, { ms: 6000 }),
+        })
+        : null,
+      el('button', {
+        text: '⤼',
+        title: t('wc.skip'),
+        style: { color: 'var(--faint)', padding: '0 6px' },
+        onclick: () => nextTask(),
+      }),
+    );
   }
 
   /* ── prompted practice ───────────────────────────────────────────────── */
@@ -234,13 +401,38 @@ export function renderWrite(root, ctx) {
       } catch { /* optional */ }
 
       const b64 = await blobToBase64(png);
+      const glossary = coach ? (await glossaryForTutor(lang, 50)).map((g) => g.term) : [];
       const out = await api.critiqueHandwriting({
         lang, image: b64, target, uiLang: uiLang(),
-        mode: target ? 'prompt' : 'free',
+        mode: coach?.task ? 'coach' : target ? 'prompt' : 'free',
         recognised: candidates,
+        task: coach?.task || null,
+        level: ctx.level(),
+        glossary,
+        recent: coach?.recent || [],
       });
       showCritique(out);
       ctx.noteHandwriting?.({ lang, target, result: out });
+
+      // Coach mode: remember what went wrong so the next task can lean on it,
+      // then hand over the instruction that came back with the feedback.
+      if (coach) {
+        for (const issue of (out.issues || []).slice(0, 2)) {
+          coach.struggles.push(`${issue.letter}: ${issue.problem}`);
+        }
+        if (out.verdict === 'wrong' || out.matchedTask === false) {
+          coach.struggles.push(`missed the task: ${coach.task?.task || ''}`);
+        }
+        coach.struggles = coach.struggles.slice(-8);
+
+        if (out.nextTask?.task) {
+          // Leave the feedback on screen long enough to read before the board
+          // clears for the next one.
+          setTimeout(() => { if (coach) applyTask(out.nextTask); }, 3200);
+        } else {
+          setTimeout(() => { if (coach) nextTask(); }, 3200);
+        }
+      }
     } catch (e) {
       hideCritique();
       if (e.code !== 'offline') toastError(e);

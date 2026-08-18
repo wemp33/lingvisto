@@ -12,7 +12,7 @@
 import * as store from './store.js';
 import * as api from './api.js';
 import * as kb from './keyboard.js';
-import { Scheduler, RATING, STATE, SKILLS, buildQueue, creditSiblings, disperseSiblings, gradeFromScore, dayStart } from './srs.js';
+import { Scheduler, RATING, STATE, SKILLS, buildQueue, creditSiblings, disperseSiblings, gradeFromScore, dayStart, loadBalance, dueHistogram } from './srs.js';
 import { LANGS, looseEqual, stripStress } from './lang.js';
 import { InkSurface } from './ink.js';
 import { t, uiLang, relativeTime } from './i18n.js';
@@ -43,7 +43,12 @@ export function renderReview(root, ctx) {
   const lang = ctx.lang();
   const L = LANGS[lang];
   const prefs = ctx.prefs();
-  const scheduler = new Scheduler({ desiredRetention: prefs.retention ?? 0.9 });
+  // Parameters tuned to this learner if they have enough history for it to
+  // mean anything; the population defaults otherwise.
+  const scheduler = new Scheduler({
+    desiredRetention: prefs.retention ?? 0.9,
+    parameters: prefs.fsrsParams || undefined,
+  });
 
   const wrap = el('div.rv');
   const bar = el('div.bar');
@@ -137,6 +142,12 @@ export function renderReview(root, ctx) {
     tap(10);
     const now = Date.now();
     const { card, log } = scheduler.review(current, rating, now);
+
+    // Nudge the new due date onto the quietest nearby day, so review load stays
+    // flat instead of arriving in spikes.
+    if (card.state === STATE.REVIEW) {
+      card.due = now + loadBalance(card.due - now, dueHistogram(allCards, now), { now });
+    }
 
     const writes = [
       { kind: 'card', id: card.id, updatedAt: now, data: card },

@@ -534,6 +534,55 @@ function openSettings() {
     el('div.val', { text: prefs.handsFree ? t('talk.handsFree') : t('talk.pushToTalk') }),
   ]));
 
+  // Tuning the scheduler to this learner.
+  const tuneVal = el('div.val', {
+    text: prefs.fsrsParams ? t('tune.tuned') : t('tune.default'),
+    style: prefs.fsrsParams ? { color: 'var(--accent)' } : {},
+  });
+  study.append(el('button.row', {
+    onclick: async (e) => {
+      const row = e.currentTarget;
+      tuneVal.textContent = '…';
+      try {
+        const r = await api.optimiseSrs({ lang: prefs.active });
+        if (!r.enough) {
+          tuneVal.textContent = `${r.reviews}/${r.needed}`;
+          toast(t('tune.notEnough', { n: r.needed - r.reviews }), { ms: 5000 });
+          return;
+        }
+        if (!r.improved) {
+          tuneVal.textContent = t('tune.alreadyGood');
+          toast(t('tune.noGain'), { ms: 5000 });
+          return;
+        }
+        await savePrefs({ fsrsParams: r.params, fsrsTunedAt: Date.now(), fsrsGain: r.gain });
+        tuneVal.textContent = t('tune.tuned');
+        tuneVal.style.color = 'var(--accent)';
+        toast(t('tune.improved', { x: r.gain, n: r.reviews }), { ms: 6000 });
+      } catch (err) {
+        tuneVal.textContent = t('tune.default');
+        toastError(err);
+      }
+    },
+  }, [
+    el('div.grow', {}, [
+      el('div.lab', { text: t('tune.title') }),
+      el('div.sub', { text: t('tune.sub') }),
+    ]),
+    tuneVal,
+  ]));
+
+  if (prefs.fsrsParams) {
+    study.append(el('button.row', {
+      onclick: async (e) => {
+        await savePrefs({ fsrsParams: null, fsrsTunedAt: null, fsrsGain: null });
+        e.currentTarget.remove();
+        tuneVal.textContent = t('tune.default');
+        tuneVal.style.color = '';
+      },
+    }, [el('div.grow', {}, [el('div.lab', { text: t('tune.reset'), style: { color: 'var(--muted)' } })])]));
+  }
+
   body.append(study, retHint);
 
   /* data */

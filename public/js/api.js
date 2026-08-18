@@ -176,6 +176,16 @@ export const analyseSong = (payload) =>
 export const extractVocabulary = (payload) =>
   req('/ai/extract', { method: 'POST', body: payload, timeout: 180_000 });
 
+// Replays the whole review history many times over, so it gets a long ceiling.
+export const optimiseSrs = (payload) =>
+  req('/srs/optimise', { method: 'POST', body: payload, timeout: 180_000 });
+
+export const chat = (payload) =>
+  req('/ai/chat', { method: 'POST', body: payload, timeout: 90_000 });
+
+export const writingTask = (payload) =>
+  req('/ai/writing-task', { method: 'POST', body: payload, timeout: 60_000 });
+
 export const sessionReport = (payload) =>
   req('/ai/report', { method: 'POST', body: payload, timeout: 60_000 });
 

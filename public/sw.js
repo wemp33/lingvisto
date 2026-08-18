@@ -24,6 +24,7 @@ const SHELL = [
   './js/review.js',
   './js/songs.js',
   './js/extract.js',
+  './js/chat.js',
   './icons/favicon.svg',
   './icons/icon-180.png',
   './icons/icon-192.png',

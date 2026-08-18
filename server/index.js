@@ -12,6 +12,8 @@ import * as auth from './auth.js';
 import * as sync from './sync.js';
 import * as ai from './ai.js';
 import * as keys from './keys.js';
+import * as optimise from './optimise.js';
+import { measuredRetention } from './optimise.js';
 import { tutorInstructions, TUTOR_TOOLS, LANG_PROMPTS } from './langdata.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -203,6 +205,27 @@ const ROUTES = {
     send(res, 200, out);
   },
 
+  // Tuning runs here, not on the phone: it replays the whole review history
+  // dozens of times. Reviews are read straight from the sync store, so nothing
+  // extra has to be uploaded.
+  'POST /api/srs/optimise': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const reviews = await optimise.loadReviews(user.id, body.lang || null);
+    const histories = optimise.toHistories(reviews);
+    const count = histories.reduce((a, h) => a + h.reviews.length, 0);
+    const retention = measuredRetention(histories);
+
+    if (count < optimise.MIN_REVIEWS) {
+      return send(res, 200, {
+        enough: false, reviews: count, needed: optimise.MIN_REVIEWS, retention,
+      });
+    }
+    const result = optimise.optimise(histories, { rounds: 4 });
+    send(res, 200, { enough: true, retention, ...result });
+  },
+
   'GET /api/keys': async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -249,6 +272,54 @@ const ROUTES = {
     send(res, 200, { ...out, tools: TUTOR_TOOLS, instructions });
   },
 
+  // The written half of the tutor. Same persona, same glossary, same tools as
+  // the spoken one — tools run on the client, so the calls come back here and
+  // the client posts their results into the next turn.
+  'POST /api/ai/chat': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const lang = LANG_PROMPTS[body.lang] ? body.lang : 'de';
+    const out = await ai.chat({
+      lang,
+      messages: Array.isArray(body.messages) ? body.messages.slice(-40) : [],
+      system: tutorInstructions({
+        lang,
+        uiLang: body.uiLang,
+        level: body.level,
+        glossary: Array.isArray(body.glossary) ? body.glossary : [],
+        dueWords: Array.isArray(body.dueWords) ? body.dueWords : [],
+        facts: Array.isArray(body.facts) ? body.facts : [],
+        objective: body.objective,
+        correctionStyle: body.correctionStyle,
+        nickname: user.nickname,
+        written: true,
+      }),
+      tools: TUTOR_TOOLS.map((t) => ({
+        name: t.name, description: t.description, input_schema: t.parameters,
+      })),
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
+    });
+    bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
+    send(res, 200, out);
+  },
+
+  'POST /api/ai/writing-task': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const body = await readJson(req);
+    const out = await ai.writingTask({
+      lang: body.lang, uiLang: body.uiLang, level: body.level, topic: body.topic,
+      glossary: Array.isArray(body.glossary) ? body.glossary : [],
+      dueWords: Array.isArray(body.dueWords) ? body.dueWords : [],
+      recent: Array.isArray(body.recent) ? body.recent : [],
+      struggles: Array.isArray(body.struggles) ? body.struggles : [],
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
+    });
+    bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
+    send(res, 200, out);
+  },
+
   'POST /api/ai/word': async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -275,6 +346,10 @@ const ROUTES = {
       uiLang: body.uiLang,
       mode: body.mode,
       recognised: body.recognised,
+      task: body.task || null,
+      level: body.level,
+      glossary: Array.isArray(body.glossary) ? body.glossary : [],
+      recent: Array.isArray(body.recent) ? body.recent : [],
       apiKey: await keys.resolveKey(user.id, 'anthropic'),
     });
     bumpUsage(user.id, 'claude_calls', 1).catch(() => {});

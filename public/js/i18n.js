@@ -66,6 +66,9 @@ const STRINGS = {
     'talk.transcript': 'Transcript',
     'talk.suggestTopics': 'Or pick one',
 
+    'chat.placeholder': 'Write to your tutor…',
+    'chat.orType': 'or just type',
+
     /* glossary */
     'gl.title': 'Words', 'gl.empty': 'No words yet.',
     'gl.emptyHint': 'Add one by hand, or let the tutor catch them while you talk.',
@@ -94,6 +97,12 @@ const STRINGS = {
     'kb.stress': 'Stress mark',
 
     /* write */
+    'wc.start': 'Guide me', 'wc.stop': 'Stop', 'wc.topic': 'Topic',
+    'wc.topicPrompt': 'What should we practise? Leave blank to let the tutor choose.',
+    'wc.thinking': 'Working out what to set you…', 'wc.skip': 'Something else',
+    'wc.readAloud': 'Read the task aloud',
+    'wc.topicPlaceholder': 'e.g. ordering food, the past tense, my job',
+    'wc.anything': 'Anything',
     'wr.title': 'Write', 'wr.newPage': 'New page', 'wr.pages': 'Pages',
     'wr.pen': 'Pen', 'wr.eraser': 'Eraser', 'wr.tutorOn': 'Tutor on', 'wr.tutorOff': 'Tutor off',
     'wr.prompt': 'Write this', 'wr.freeWrite': 'Free writing',
@@ -173,6 +182,12 @@ const STRINGS = {
     'ex.myCaptures': 'From photos and files', 'ex.deleteWarn': 'Remove this? Words you already added stay in your glossary.',
 
     /* settings */
+    'tune.title': 'Tune to my memory', 'tune.sub': 'Refit the schedule from your own review history.',
+    'tune.default': 'Standard', 'tune.tuned': 'Tuned', 'tune.alreadyGood': 'Standard fits',
+    'tune.notEnough': '{n} more reviews needed before your history says anything useful.',
+    'tune.noGain': 'Your history matches the standard schedule closely — nothing to gain by changing it.',
+    'tune.improved': '{x}% better predictions, from {n} reviews.',
+    'tune.reset': 'Go back to the standard schedule',
     'set.title': 'Settings',
     'set.interface': 'Interface language', 'set.learning': 'Languages I am learning',
     'set.account': 'Account', 'set.study': 'Study', 'set.data': 'Data', 'set.about': 'About',
@@ -255,6 +270,9 @@ const STRINGS = {
     'talk.transcript': 'Zapis rozmowy',
     'talk.suggestTopics': 'Albo wybierz',
 
+    'chat.placeholder': 'Napisz do nauczyciela…',
+    'chat.orType': 'albo po prostu napisz',
+
     'gl.title': 'Słowa', 'gl.empty': 'Jeszcze nie ma słów.',
     'gl.emptyHint': 'Dodaj ręcznie albo pozwól nauczycielowi łapać je w rozmowie.',
     'gl.add': 'Dodaj słowo', 'gl.search': 'Szukaj',
@@ -280,6 +298,12 @@ const STRINGS = {
     'kb.translit': 'Pisz literami łacińskimi', 'kb.translitHint': 'privet → привет',
     'kb.stress': 'Akcent',
 
+    'wc.start': 'Prowadź mnie', 'wc.stop': 'Zakończ', 'wc.topic': 'Temat',
+    'wc.topicPrompt': 'Co ćwiczymy? Zostaw puste, a nauczyciel wybierze.',
+    'wc.thinking': 'Zastanawiam się, co ci zadać…', 'wc.skip': 'Co innego',
+    'wc.readAloud': 'Czytaj zadanie na głos',
+    'wc.topicPlaceholder': 'np. zamawianie jedzenia, czas przeszły, moja praca',
+    'wc.anything': 'Cokolwiek',
     'wr.title': 'Pismo', 'wr.newPage': 'Nowa strona', 'wr.pages': 'Strony',
     'wr.pen': 'Pióro', 'wr.eraser': 'Gumka', 'wr.tutorOn': 'Nauczyciel wł.', 'wr.tutorOff': 'Nauczyciel wył.',
     'wr.prompt': 'Napisz to', 'wr.freeWrite': 'Pisanie swobodne',
@@ -357,6 +381,12 @@ const STRINGS = {
     'ex.privacy': 'Zdjęcie trafia do AI, żeby je odczytać, i nie jest przechowywane — zostają tylko słowa.',
     'ex.myCaptures': 'Ze zdjęć i plików', 'ex.deleteWarn': 'Usunąć? Dodane już słowa zostają w słowniku.',
 
+    'tune.title': 'Dostrój do mojej pamięci', 'tune.sub': 'Przelicz harmonogram z twojej historii powtórek.',
+    'tune.default': 'Standard', 'tune.tuned': 'Dostrojony', 'tune.alreadyGood': 'Standard pasuje',
+    'tune.notEnough': 'Potrzeba jeszcze {n} powtórek, żeby twoja historia coś mówiła.',
+    'tune.noGain': 'Twoja historia pokrywa się ze standardem — nie ma czego poprawiać.',
+    'tune.improved': '{x}% lepsze przewidywania, z {n} powtórek.',
+    'tune.reset': 'Wróć do standardowego harmonogramu',
     'set.title': 'Ustawienia',
     'set.interface': 'Język interfejsu', 'set.learning': 'Języki, których się uczę',
     'set.account': 'Konto', 'set.study': 'Nauka', 'set.data': 'Dane', 'set.about': 'O aplikacji',

@@ -182,11 +182,28 @@ const HAND_TOOL = {
         },
       },
       spelling: { type: 'string', description: 'The correct spelling when the reading is misspelled; empty otherwise.' },
+      matchedTask: {
+        type: 'boolean',
+        description: 'Coach mode only: did they write what the task actually asked for? Legible writing of the wrong thing is false.',
+      },
+      nextTask: {
+        type: 'object',
+        description: 'Coach mode only. The next thing to write, chosen in light of what just happened.',
+        required: ['task', 'expect'],
+        properties: {
+          task: { type: 'string', description: 'The instruction, in the interface language.' },
+          spoken: { type: 'string', description: 'The same instruction phrased for reading aloud.' },
+          expect: { type: 'string' },
+          mode: { type: 'string', enum: ['letter', 'word', 'phrase', 'sentence'] },
+          hint: { type: 'string' },
+          why: { type: 'string', description: 'One clause on why this follows from what they just did.' },
+        },
+      },
     },
   },
 };
 
-export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 'en', mode = 'free', recognised = null, apiKey }) {
+export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 'en', mode = 'free', recognised = null, apiKey, task = null, level = 'B1', glossary = [], recent = [] }) {
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
 
@@ -211,8 +228,18 @@ export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 
     { type: 'image', source: { type: 'base64', media_type: 'image/png', data: imageBase64 } },
   ];
   const facts = [];
-  if (mode === 'prompt' && target) facts.push(`The learner was asked to write: ${target}`);
-  else facts.push('The learner is writing freely; there is no target word.');
+  if (mode === 'coach' && task) {
+    facts.push(`The task you set was: ${task.task}`);
+    facts.push(`A correct answer would be: ${task.expect}`);
+    if (task.alternatives?.length) facts.push(`Also acceptable: ${task.alternatives.join(', ')}`);
+    facts.push(`They are around CEFR ${level}.`);
+    if (glossary.length) facts.push(`Words in their glossary you may draw on: ${glossary.slice(0, 50).join(', ')}`);
+    if (recent.length) facts.push(`Tasks already set this session, do not repeat: ${recent.slice(-6).join(' | ')}`);
+  } else if (mode === 'prompt' && target) {
+    facts.push(`The learner was asked to write: ${target}`);
+  } else {
+    facts.push('The learner is writing freely; there is no target word.');
+  }
   // A separate recogniser is more reliable at reading ink than a vision model
   // is, so when it has an opinion it is handed over as evidence rather than
   // asking the model to work alone.
@@ -224,7 +251,7 @@ export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 
   const { result } = await claudeJson({
     system, content, tool: HAND_TOOL,
     model: mode === 'prompt' ? MODEL_FAST : MODEL_GOOD,
-    maxTokens: 900, apiKey,
+    maxTokens: mode === 'coach' ? 1400 : 900, apiKey,
   });
   return result;
 }
@@ -640,3 +667,120 @@ export async function recogniseInk({ lang, ink, width, height }) {
 }
 
 export { AiError };
+
+/* ---- text chat with the same tutor ---- */
+
+// The written half of the tutor. Same persona and the same glossary awareness
+// as the spoken one, and the same tools — so "add that word" works whether it
+// is said out loud or typed. Tools execute on the client, so this returns the
+// calls rather than running them, and the client posts the results back.
+export async function chat({ lang, messages, system, tools = [], apiKey, model = MODEL_GOOD }) {
+  if (!apiKey) throw new AiError('no_key', 503);
+  if (!LANG_PROMPTS[lang]) throw new AiError('bad_language', 400);
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1200,
+      system,
+      messages,
+      ...(tools.length ? { tools } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new AiError('model_error', res.status === 429 ? 429 : 502, text.slice(0, 400));
+  }
+  const data = await res.json();
+  return {
+    text: (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('').trim(),
+    toolCalls: (data.content || [])
+      .filter((c) => c.type === 'tool_use')
+      .map((c) => ({ id: c.id, name: c.name, input: c.input })),
+    stopReason: data.stop_reason,
+    raw: data.content || [],
+  };
+}
+
+/* ---- what to write next ---- */
+
+const TASK_TOOL = {
+  name: 'set_writing_task',
+  description: 'Give the learner one concrete thing to write by hand.',
+  input_schema: {
+    type: 'object',
+    required: ['task', 'expect', 'mode'],
+    properties: {
+      task: {
+        type: 'string',
+        description: 'The instruction, in the interface language. One sentence, concrete and unambiguous.',
+      },
+      spoken: {
+        type: 'string',
+        description: 'The same instruction phrased for reading aloud — no parentheses or punctuation tricks.',
+      },
+      expect: {
+        type: 'string',
+        description: 'What a correct answer looks like, in the target language. If several are right, give the most natural.',
+      },
+      alternatives: { type: 'array', items: { type: 'string' }, description: 'Other fully correct answers.' },
+      mode: { type: 'string', enum: ['letter', 'word', 'phrase', 'sentence'] },
+      hint: { type: 'string', description: 'One nudge, shown only if they ask.' },
+      targetWords: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Glossary words this task is meant to exercise.',
+      },
+      why: { type: 'string', description: 'One clause on why this task now — what it is practising.' },
+    },
+  },
+};
+
+export async function writingTask({
+  lang, uiLang = 'en', level = 'B1', topic = '', glossary = [], dueWords = [],
+  recent = [], struggles = [], apiKey,
+}) {
+  const L = LANG_PROMPTS[lang];
+  if (!L) throw new AiError('bad_language', 400);
+
+  const system = [
+    `You set handwriting exercises for someone learning ${L.name} at around CEFR ${level}.`,
+    `Write the instruction in ${uiLang === 'pl' ? 'Polish' : 'English'}; what they write will be in ${L.name}.`,
+    '',
+    'What makes a good task here:',
+    '- It must be writable by hand in under a minute. One word, a phrase, or one short sentence — never a paragraph.',
+    '- It must have a checkable answer. "Write something about your day" cannot be marked; "Write: I am going to the station" can.',
+    '- Prefer words already in their glossary, and especially ones due for review — writing a word is the strongest way to fix it.',
+    '- Vary the shape. Do not set five translation tasks in a row; mix translating, completing, answering a question, and writing from a description.',
+    `- ${L.handwritingNotes}`,
+    '- Build on what they just got wrong. If they mangled a letterform or missed an accent, set something that needs it again — but do not make it obvious you are drilling them.',
+    '- Never repeat a task they have just done.',
+  ].join('\n');
+
+  const facts = [];
+  if (topic) facts.push(`They want to work on: ${topic}. Keep the task within that.`);
+  if (dueWords.length) facts.push(`Due for review today: ${dueWords.slice(0, 20).join(', ')}`);
+  if (glossary.length) facts.push(`In their glossary: ${glossary.slice(0, 60).join(', ')}`);
+  if (recent.length) facts.push(`Already set this session, do not repeat: ${recent.slice(-6).join(' | ')}`);
+  if (struggles.length) facts.push(`They have just had trouble with: ${struggles.slice(-5).join('; ')}`);
+  if (!glossary.length && !topic) {
+    facts.push('Their glossary is empty, so use common everyday vocabulary at their level.');
+  }
+
+  const { result } = await claudeJson({
+    system,
+    content: [{ type: 'text', text: facts.join('\n') || 'Set an opening task.' }],
+    tool: TASK_TOOL,
+    maxTokens: 900,
+    model: MODEL_FAST,
+    apiKey,
+  });
+  return result;
+}

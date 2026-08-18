@@ -71,6 +71,7 @@ export function tutorInstructions({
   objective = '',
   correctionStyle = 'gentle',
   nickname = '',
+  written = false,
 }) {
   const L = LANG_PROMPTS[lang];
   const base = uiLang === 'pl' ? 'Polish' : 'English';
@@ -109,7 +110,7 @@ export function tutorInstructions({
   if (glossary.length) {
     lines.push(
       '',
-      'THEIR LINGVISTORY',
+      'THEIR GLOSSARY',
       `These are words the learner has saved and is trying to learn. Work them into the conversation naturally where they fit — this is the point of the exercise. Do not list them, quiz them mechanically, or force more than a few into one session.`,
       glossary.slice(0, 200).map((w) => `- ${w.term}${w.gloss ? ` (${w.gloss})` : ''}`).join('\n'),
     );
@@ -145,7 +146,9 @@ export function tutorInstructions({
     '- When you correct something, call note_correction so it reaches their session report.',
     '- Call tools while you keep talking. Never narrate the mechanics, and never read a tool result aloud verbatim.',
     '',
-    `Open by greeting them in ${L.name} and asking something easy to answer.`,
+    written
+      ? `You are talking to them in writing rather than out loud. Everything above still holds, with three changes: never comment on pronunciation, because you cannot hear them; keep replies to two or three short lines, because they are reading on a phone; and write ${L.name} in the script it is properly written in.`
+      : `Open by greeting them in ${L.name} and asking something easy to answer.`,
   );
 
   return lines.join('\n');
