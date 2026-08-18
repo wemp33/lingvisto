@@ -7,10 +7,14 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-// Railway's Postgres presents a certificate that node does not chain to a
-// public root, so verification has to be off for the internal URL to connect.
-const needsSsl = /[?&]sslmode=require/.test(process.env.DATABASE_URL || '')
-  || /\.proxy\.rlwy\.net|\.railway\.app/.test(process.env.DATABASE_URL || '');
+// Railway's Postgres image serves a self-signed certificate, so TLS has to be
+// used with verification off — node cannot chain it to a public root. This
+// covers the internal host (postgres.railway.internal), the TCP proxy and the
+// public domain. Set PGSSLMODE=disable to force it off.
+const url = process.env.DATABASE_URL || '';
+const needsSsl = process.env.PGSSLMODE === 'disable'
+  ? false
+  : /[?&]sslmode=require/.test(url) || /railway\.internal|rlwy\.net|railway\.app/.test(url);
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
