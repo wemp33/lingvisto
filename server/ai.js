@@ -39,14 +39,14 @@ class AiError extends Error {
 
 // Structured output via a forced tool call. This is the stable way to get JSON
 // out of the model — assistant-turn prefills are rejected by current models.
-async function claudeJson({ system, content, tool, model = MODEL_GOOD, maxTokens = 2000 }) {
-  if (!hasAnthropic()) throw new AiError('no_key', 503);
+async function claudeJson({ system, content, tool, model = MODEL_GOOD, maxTokens = 2000, apiKey }) {
+  if (!apiKey) throw new AiError('no_key', 503);
 
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -122,7 +122,7 @@ const WORD_TOOL = {
   },
 };
 
-export async function validateWord({ lang, term, meaning, uiLang = 'en', level = 'B1' }) {
+export async function validateWord({ lang, term, meaning, uiLang = 'en', level = 'B1', apiKey }) {
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
 
@@ -151,7 +151,7 @@ export async function validateWord({ lang, term, meaning, uiLang = 'en', level =
     });
   }
 
-  const { result } = await claudeJson({ system, content, tool: WORD_TOOL, maxTokens: 1500 });
+  const { result } = await claudeJson({ system, content, tool: WORD_TOOL, maxTokens: 1500, apiKey });
   return result;
 }
 
@@ -186,7 +186,7 @@ const HAND_TOOL = {
   },
 };
 
-export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 'en', mode = 'free', recognised = null }) {
+export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 'en', mode = 'free', recognised = null, apiKey }) {
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
 
@@ -224,7 +224,7 @@ export async function critiqueHandwriting({ lang, imageBase64, target, uiLang = 
   const { result } = await claudeJson({
     system, content, tool: HAND_TOOL,
     model: mode === 'prompt' ? MODEL_FAST : MODEL_GOOD,
-    maxTokens: 900,
+    maxTokens: 900, apiKey,
   });
   return result;
 }
@@ -321,7 +321,7 @@ const SONG_TOOL = {
   },
 };
 
-export async function analyseSong({ lang, title, artist, uiLang = 'en', level = 'B1' }) {
+export async function analyseSong({ lang, title, artist, uiLang = 'en', level = 'B1', apiKey }) {
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
 
@@ -356,7 +356,7 @@ export async function analyseSong({ lang, title, artist, uiLang = 'en', level = 
     }],
     tool: SONG_TOOL,
     maxTokens: 6000,
-    model: MODEL_GOOD,
+    model: MODEL_GOOD, apiKey,
   });
   return result;
 }
@@ -402,7 +402,7 @@ const REPORT_TOOL = {
   },
 };
 
-export async function sessionReport({ lang, transcript, uiLang = 'en' }) {
+export async function sessionReport({ lang, transcript, uiLang = 'en', apiKey }) {
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
   const system = [
@@ -418,7 +418,7 @@ export async function sessionReport({ lang, transcript, uiLang = 'en' }) {
     system,
     content: [{ type: 'text', text: transcript.slice(0, 40_000) }],
     tool: REPORT_TOOL,
-    maxTokens: 2000,
+    maxTokens: 2000, apiKey,
   });
   return result;
 }
@@ -427,14 +427,14 @@ export async function sessionReport({ lang, transcript, uiLang = 'en' }) {
 
 // A short-lived client secret, so the browser can open the WebRTC session
 // directly without ever holding the real key.
-export async function realtimeSession({ lang, instructions, voice }) {
-  if (!hasOpenAI()) throw new AiError('no_key', 503);
+export async function realtimeSession({ lang, instructions, voice, tools, apiKey }) {
+  if (!apiKey) throw new AiError('no_key', 503);
 
   const res = await fetch(`${OPENAI}/realtime/client_secrets`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       expires_after: { anchor: 'created_at', seconds: 600 },
@@ -464,8 +464,8 @@ export async function realtimeSession({ lang, instructions, voice }) {
 // Single-word playback for the glossary. Separate from the conversation: it
 // has to be able to say a word slowly and syllable by syllable for drilling,
 // which a conversational voice will not do on request.
-export async function speak({ lang, text, slow = false, voice }) {
-  if (!hasOpenAI()) throw new AiError('no_key', 503);
+export async function speak({ lang, text, slow = false, voice, apiKey }) {
+  if (!apiKey) throw new AiError('no_key', 503);
   const L = LANG_PROMPTS[lang];
   if (!L) throw new AiError('bad_language', 400);
 
@@ -477,7 +477,7 @@ export async function speak({ lang, text, slow = false, voice }) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: TTS_MODEL,

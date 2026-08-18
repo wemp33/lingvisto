@@ -118,6 +118,15 @@ export async function pull(cursor) {
   }
 }
 
+/* ---------- api keys ---------- */
+// The key itself is write-only from the client's point of view: it goes up
+// once and only its last four characters ever come back.
+export const keyStatus = () => req('/keys');
+export const setKey = (provider, key) =>
+  req('/keys', { method: 'POST', body: { provider, key }, timeout: 30_000 });
+export const clearKey = (provider) =>
+  req(`/keys?provider=${encodeURIComponent(provider)}`, { method: 'DELETE' });
+
 /* ---------- ai ---------- */
 
 // Ephemeral client secret for the OpenAI Realtime session. Short-lived and

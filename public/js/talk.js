@@ -49,7 +49,8 @@ export class TutorSession extends EventTarget {
 
   /* ---------- connect ---------- */
 
-  async connect({ lang, objective, glossary, dueWords, facts, level, correctionStyle, handsFree = true }) {
+  async connect({ lang, objective, glossary, dueWords, facts, level, correctionStyle, handsFree = true, actions = null }) {
+    this.actions = actions || {};
     if (this.state !== 'idle' && this.state !== 'ended') return;
     this.handsFree = handsFree;
     this.setState('connecting');
@@ -200,7 +201,7 @@ export class TutorSession extends EventTarget {
         break;
 
       case 'response.function_call_arguments.done':
-        this._onToolCall(ev);
+        this._onToolCall(ev).catch((e) => console.warn('tool failed', e));
         break;
 
       case 'error':
@@ -225,24 +226,35 @@ export class TutorSession extends EventTarget {
     this.emitTurns();
   }
 
-  _onToolCall(ev) {
+  // Tool calls run for real against the glossary. The result is fed back so the
+  // tutor can confirm accurately — including when something did not work, so it
+  // never claims to have saved a word it did not.
+  async _onToolCall(ev) {
     let args = {};
     try { args = JSON.parse(ev.arguments || '{}'); } catch { /* malformed */ }
 
-    if (ev.name === 'note_new_word' && args.term) {
-      this.newWords.push(args);
-      this.dispatchEvent(new CustomEvent('word', { detail: args }));
-    } else if (ev.name === 'note_correction' && args.said) {
-      this.corrections.push(args);
-      this.dispatchEvent(new CustomEvent('correction', { detail: args }));
+    let output = { ok: false, error: 'unknown_tool' };
+    try {
+      const run = this.actions?.[ev.name];
+      if (ev.name === 'note_correction' && args.said) {
+        this.corrections.push(args);
+        this.dispatchEvent(new CustomEvent('correction', { detail: args }));
+        output = { ok: true };
+      } else if (run) {
+        output = (await run(args)) || { ok: true };
+      }
+    } catch (e) {
+      output = { ok: false, error: String(e?.code || e?.message || 'failed') };
     }
 
-    // The tools only record things, so an empty acknowledgement is the whole
-    // response — but it has to be sent or the model waits for it.
+    // The acknowledgement has to be sent either way, or the model waits on it
+    // and the conversation stalls mid-sentence.
     this.dc?.send(JSON.stringify({
       type: 'conversation.item.create',
-      item: { type: 'function_call_output', call_id: ev.call_id, output: '{"ok":true}' },
+      item: { type: 'function_call_output', call_id: ev.call_id, output: JSON.stringify(output) },
     }));
+    // Nudge it to speak the confirmation rather than sit on the result.
+    this.dc?.send(JSON.stringify({ type: 'response.create' }));
   }
 
   /* ---------- push to talk ---------- */
@@ -399,7 +411,6 @@ export function renderTalk(root, ctx) {
     });
     session.addEventListener('turns', paintTurns);
     session.addEventListener('correction', (e) => showCorrection(e.detail));
-    session.addEventListener('word', (e) => ctx.captureWord(e.detail, lang));
     session.addEventListener('level', (e) => orb.style.setProperty('--lvl', String(e.detail)));
     session.addEventListener('lost', () => {
       status.textContent = t('talk.micLost');
@@ -418,6 +429,7 @@ export function renderTalk(root, ctx) {
         level: ctx.level(),
         correctionStyle: ctx.correctionStyle(),
         handsFree: ctx.handsFree(),
+        actions: ctx.tutorActions(lang, (msg) => { status.textContent = msg; }),
       });
       glossHint.textContent = glossary.length ? t('talk.usesGlossary', { n: glossary.length }) : '';
       renderRunning();

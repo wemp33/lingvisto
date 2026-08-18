@@ -66,6 +66,17 @@ CREATE INDEX IF NOT EXISTS records_pull_idx ON records(user_id, seq);
 -- can ask "everything after seq N" without worrying about clock skew.
 CREATE SEQUENCE IF NOT EXISTS record_seq;
 
+-- Per-user API keys, encrypted. Added after the fact, so this is an ALTER
+-- rather than part of the users table above.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS keys JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Server-wide singletons; currently just the encryption secret used when no
+-- APP_SECRET is configured.
+CREATE TABLE IF NOT EXISTS server_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS usage (
   user_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   day      DATE   NOT NULL,

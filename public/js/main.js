@@ -7,7 +7,7 @@ import { initI18n, t, uiLang, setUiLang, applyStatic, relativeTime, formatDate }
 import { LANGS, LANG_CODES, UI_LANGS } from './lang.js';
 import { el, clear, sheet, toast, toastError, confirmAction, tap, paintMark, isStandalone } from './ui.js';
 import { renderTalk } from './talk.js';
-import { renderWords, glossaryForTutor, saveWord, allWords, openAddWord } from './glossary.js';
+import { renderWords, glossaryForTutor, saveWord, allWords, deleteWord, openAddWord } from './glossary.js';
 import { renderWrite } from './write.js';
 import { renderReview, dueCount, dueWordsForTutor } from './review.js';
 import { workloadMultiplier } from './srs.js';
@@ -118,8 +118,155 @@ const ctx = {
     }
   },
 
+  // What the tutor can actually do to the glossary mid-conversation.
+  //
+  // Every one of these fires on a speech-recognition result, so every one is
+  // either additive or shows an undo. The tutor is told to confirm out loud,
+  // and the return value is what it confirms from — so if something failed it
+  // says so instead of claiming a word was saved.
+  tutorActions(lang, setStatus = () => {}) {
+    const norm = (s) => String(s || '').toLowerCase().trim();
+
+    const findWord = async (term) => {
+      const words = await allWords(lang);
+      const target = norm(term);
+      return words.find((w) => norm(w.term) === target || norm(w.asWritten) === target)
+        || words.find((w) => norm(w.term).startsWith(target) && target.length > 2)
+        || null;
+    };
+
+    return {
+      async add_word(args) {
+        if (!args.term) return { ok: false, error: 'no_term' };
+        const existing = await findWord(args.term);
+        if (existing) return { ok: true, already: true, term: existing.term };
+
+        const saved = await saveWord({
+          lang,
+          term: args.term,
+          asWritten: args.term,
+          translations: { [uiLang()]: args.gloss ? [args.gloss] : [] },
+          example: args.context ? { text: args.context } : null,
+          source: 'talk',
+          unchecked: true,
+        });
+        refreshDue();
+        undoToast(`＋ ${saved.term}`, async () => {
+          await deleteWord(saved.id);
+          refreshDue();
+        });
+        return { ok: true, term: saved.term, cards: 4 };
+      },
+
+      async remove_word(args) {
+        const w = await findWord(args.term);
+        if (!w) return { ok: false, error: 'not_in_glossary', term: args.term };
+        // Keep a copy so undo can put it back with its history intact.
+        const snapshot = { ...w };
+        await deleteWord(w.id);
+        refreshDue();
+        undoToast(`− ${w.term}`, async () => {
+          await saveWord(snapshot);
+          refreshDue();
+        });
+        return { ok: true, term: w.term };
+      },
+
+      async mark_word(args) {
+        const w = await findWord(args.term);
+        if (!w) return { ok: false, error: 'not_in_glossary', term: args.term };
+        const cards = (await store.all('card')).filter((c) => c.wordId === w.id);
+        const now = Date.now();
+        const DAY = 86_400_000;
+        // "Known" pushes every card of that word out a month; "hard" brings
+        // them all back to today. Neither touches stability — this is a
+        // scheduling nudge from the learner, not evidence about their memory.
+        const writes = cards.map((c) => ({
+          kind: 'card',
+          id: c.id,
+          updatedAt: now,
+          data: { ...c, due: args.status === 'known' ? now + 30 * DAY : now },
+        }));
+        await store.putMany(writes);
+        refreshDue();
+        return { ok: true, term: w.term, status: args.status, cards: writes.length };
+      },
+
+      async learn_song(args) {
+        if (!args.title || !args.artist) return { ok: false, error: 'need_title_and_artist' };
+        setStatus(t('sg.analysing'));
+        try {
+          const lesson = await api.analyseSong({
+            lang, title: args.title, artist: args.artist, uiLang: uiLang(), level: prefs.level,
+          });
+          if (!lesson.found || !(lesson.vocabulary || []).length) {
+            setStatus('');
+            return { ok: false, error: 'song_not_known' };
+          }
+
+          const song = await store.put('song', store.uid(), {
+            id: store.uid(), lang,
+            title: lesson.title || args.title,
+            artist: lesson.artist || args.artist,
+            lesson, createdAt: Date.now(),
+          });
+
+          // Unless they asked for everything, add only the everyday words —
+          // songs are full of archaic and poetic usage nobody should be drilled on.
+          const picks = (lesson.vocabulary || []).filter((v) => args.addAll || v.core !== false);
+          const existing = await allWords(lang);
+          let added = 0;
+          for (const v of picks) {
+            if (existing.some((w) => norm(w.term) === norm(v.lemma))) continue;
+            await saveWord({
+              lang, term: v.lemma, asWritten: v.lemma, pos: v.pos,
+              translations: v.translations || {}, ipa: v.ipa, grammar: v.grammar || {},
+              example: v.example || null, notes: v.note,
+              source: 'song', songId: song.data?.id, poetic: v.core === false,
+              songTitle: `${lesson.title || args.title} — ${lesson.artist || args.artist}`,
+            });
+            existing.push({ term: v.lemma });
+            added += 1;
+          }
+          setStatus('');
+          refreshDue();
+          toast(t('sg.added', { n: added }));
+          return {
+            ok: true, added, title: lesson.title, artist: lesson.artist,
+            skipped: (lesson.vocabulary || []).length - picks.length,
+          };
+        } catch (e) {
+          setStatus('');
+          return { ok: false, error: String(e?.code || 'failed') };
+        }
+      },
+
+      async get_due_words(args) {
+        const due = await dueWordsForTutor(lang, Math.min(args?.limit || 15, 30));
+        return { ok: true, words: due.map((w) => w.term) };
+      },
+    };
+  },
+
   refreshDue: () => refreshDue(),
 };
+
+// A toast that can be taken back. Used for anything the tutor did on its own
+// reading of speech, so a misheard word costs one tap rather than a silent
+// corruption of the glossary.
+function undoToast(message, undo) {
+  const node = toast(message, { ms: 7000 });
+  node.style.pointerEvents = 'auto';
+  node.append(el('button', {
+    text: '  ' + t('act.undo'),
+    style: { color: '#8FD3AE', fontWeight: '700', marginLeft: '10px' },
+    onclick: async () => {
+      node.remove();
+      await undo();
+      toast(t('act.undo'));
+    },
+  }));
+}
 
 function openReport(report, lang) {
   const L = LANGS[lang];
@@ -269,6 +416,12 @@ function openSettings() {
     },
   }, [el('div.grow', {}, [el('div.lab', { text: t('acct.signOut') })])]));
   body.append(acct, el('div.note', { text: t('acct.offlineNote') }));
+
+  /* AI keys */
+  body.append(el('div.sect', { text: t('key.title') }));
+  const keyRows = el('div.rows');
+  body.append(keyRows, el('div.note', { text: t('key.hint') }));
+  paintKeys(keyRows);
 
   /* languages */
   body.append(el('div.sect', { text: t('set.learning') }));
@@ -438,6 +591,108 @@ function openSettings() {
   }));
 
   const h = sheet({ title: t('set.title'), body });
+}
+
+/* ═══ AI keys ═══════════════════════════════════════════════════════════ */
+
+const PROVIDERS = [
+  { id: 'openai', label: 'key.openai', what: 'key.openaiWhat', where: 'key.getOpenai' },
+  { id: 'anthropic', label: 'key.anthropic', what: 'key.anthropicWhat', where: 'key.getAnthropic' },
+];
+
+async function paintKeys(host) {
+  clear(host);
+  let status = {};
+  try {
+    status = await api.keyStatus();
+  } catch {
+    host.append(el('div.row', {}, [el('div.grow', {}, [el('div.sub', { text: t('err.offline') })])]));
+    return;
+  }
+
+  for (const p of PROVIDERS) {
+    const st = status[p.id] || {};
+    const value = st.set
+      ? `··· ${st.last4}`
+      : st.fromServer ? t('key.fromServer') : t('key.none');
+    host.append(el('button.row', {
+      onclick: () => openKeyEntry(p, () => paintKeys(host)),
+    }, [
+      el('div.grow', {}, [
+        el('div.lab', { text: t(p.label) }),
+        el('div.sub', { text: t(p.what) }),
+      ]),
+      el('div.val', {
+        text: value,
+        style: st.set ? { color: 'var(--accent)' } : {},
+      }),
+    ]));
+  }
+}
+
+// The learner types their own key here. It is sent once, verified against the
+// provider before being stored, and never comes back — the row above can only
+// ever show its last four characters.
+function openKeyEntry(provider, onDone) {
+  const body = el('div');
+  const input = el('input.input', {
+    type: 'password',
+    placeholder: t('key.paste'),
+    autocapitalize: 'off',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    autocomplete: 'off',
+    style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '14px' },
+  });
+  const err = el('div.errline', { hidden: true });
+  const save = el('button.btn', { text: t('act.save') });
+
+  body.append(
+    el('div.field', {}, [
+      el('label', { text: t(provider.label) }),
+      input,
+      el('div.hint', { text: t(provider.where) }),
+    ]),
+    err,
+    save,
+    el('div.note', { text: t('key.hint') }),
+  );
+
+  const remove = el('button.btn.quiet', {
+    text: t('key.remove'),
+    style: { color: 'var(--rose)', marginTop: '10px' },
+    onclick: async () => {
+      await api.clearKey(provider.id).catch(() => {});
+      h.close();
+      onDone();
+    },
+  });
+  body.append(remove);
+
+  save.addEventListener('click', async () => {
+    const key = input.value.trim();
+    if (!key) return;
+    err.hidden = true;
+    save.disabled = true;
+    clear(save).append(el('span.spinner'), document.createTextNode(' ' + t('key.checking')));
+    try {
+      await api.setKey(provider.id, key);
+      // Do not leave the key sitting in a DOM node once it has been accepted.
+      input.value = '';
+      h.close();
+      toast(t('key.saved'));
+      onDone();
+    } catch (e) {
+      save.disabled = false;
+      clear(save).append(document.createTextNode(t('act.save')));
+      err.hidden = false;
+      const k = `err.${e.code}`;
+      err.textContent = t(k) === k ? t('err.generic') : t(k);
+    }
+  });
+
+  const h = sheet({ title: t(provider.label), body, onClose: () => { input.value = ''; } });
+  setTimeout(() => input.focus(), 340);
 }
 
 // Mic capture, recording formats and speech support have all broken in iOS
@@ -716,6 +971,10 @@ async function start() {
       .catch(() => {});
   }
 }
+
+// Exported so the action table can be exercised directly; main.js is the entry
+// point, so nothing else imports this.
+export { ctx };
 
 start().catch((e) => {
   console.error(e);

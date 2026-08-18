@@ -51,13 +51,20 @@ Requires Node 22+ and these environment variables:
 | Variable | Required | What it does |
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Postgres. Railway provides this when you add the plugin. |
-| `OPENAI_API_KEY` | for speech | The talking tutor and word audio. |
-| `ANTHROPIC_API_KEY` | for text | Word checking, handwriting critique, session reports. |
+| `OPENAI_API_KEY` | no | Fallback for the talking tutor and word audio. Each user can set their own in Settings instead. |
+| `ANTHROPIC_API_KEY` | no | Fallback for word checking, handwriting and song lessons. |
+| `APP_SECRET` | recommended | Encrypts user-supplied API keys at rest. Generated and stored in the database if unset. |
 | `PORT` | no | Defaults to 3000. |
 | `ALLOWED_NICKNAMES` | no | Comma-separated allowlist. Empty means anyone can register. |
 
-The app degrades rather than breaking: with no keys you can still add words,
-write on the whiteboard and do reviews.
+Keys are normally entered in the app itself, under **Settings → AI keys**. They
+are verified against the provider before being stored, encrypted with
+AES-256-GCM, and never sent back to the browser — the settings screen only ever
+shows the last four characters. The environment variables above are a fallback
+for when you would rather one key serve everyone.
+
+The app degrades rather than breaking: with no keys at all you can still add
+words, write on the whiteboard and do reviews.
 
 ### Working on the interface
 
@@ -145,6 +152,20 @@ initialised outside a user gesture with no error and no event, and an `<audio>`
 sink attached after the network handshake loses the tutor's first sentence. So
 the audio context, the silent unlock buffer, the audio session type, the sink
 element and `getUserMedia` all happen before the first `await` in `connect()`.
+
+**The tutor can act, not just talk.** Asking it out loud to save a word, drop
+one, mark one as known, quiz you on what is due, or build a lesson from a song
+all take effect immediately against the real glossary. Every action is additive
+or reversible and shows an undo, because these fire on speech recognition and
+speech recognition mishears. The tool result is fed back so the tutor confirms
+what actually happened — if a word was not found it says so rather than
+claiming it saved something.
+
+**API keys live on the server, never in the browser.** They are encrypted at
+rest, which protects against a database dump or a key in a log — not against
+someone who already has the server and its secret. Keeping them off the client
+is what preserves the ephemeral-token design: the real key never reaches a page
+where injected script could read it.
 
 **Songs teach vocabulary, not lyrics.** The song feature never reproduces the
 words of a song — not a line, not a distinctive phrase. Vocabulary comes back

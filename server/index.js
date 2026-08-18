@@ -11,6 +11,7 @@ import { migrate, bumpUsage } from './db.js';
 import * as auth from './auth.js';
 import * as sync from './sync.js';
 import * as ai from './ai.js';
+import * as keys from './keys.js';
 import { tutorInstructions, TUTOR_TOOLS, LANG_PROMPTS } from './langdata.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -202,6 +203,29 @@ const ROUTES = {
     send(res, 200, out);
   },
 
+  'GET /api/keys': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    send(res, 200, await keys.keyStatus(user.id));
+  },
+
+  'POST /api/keys': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const { provider, key } = await readJson(req);
+    const out = await keys.setKey(user.id, provider, key);
+    if (out.error) return fail(res, 400, out.error, out.hint ? { hint: out.hint } : {});
+    send(res, 200, { ...out, status: await keys.keyStatus(user.id) });
+  },
+
+  'DELETE /api/keys': async (req, res, url) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const out = await keys.clearKey(user.id, url.searchParams.get('provider'));
+    if (out.error) return fail(res, 400, out.error);
+    send(res, 200, { ...out, status: await keys.keyStatus(user.id) });
+  },
+
   'POST /api/ai/realtime-session': async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -218,7 +242,10 @@ const ROUTES = {
       correctionStyle: body.correctionStyle,
       nickname: user.nickname,
     });
-    const out = await ai.realtimeSession({ lang, instructions, voice: LANG_PROMPTS[lang].voice });
+    const apiKey = await keys.resolveKey(user.id, 'openai');
+    const out = await ai.realtimeSession({
+      lang, instructions, voice: LANG_PROMPTS[lang].voice, apiKey,
+    });
     send(res, 200, { ...out, tools: TUTOR_TOOLS, instructions });
   },
 
@@ -230,6 +257,7 @@ const ROUTES = {
     const out = await ai.validateWord({
       lang: body.lang, term: String(body.term).trim(),
       meaning: body.meaning, uiLang: body.uiLang, level: body.level,
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
     });
     bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
     send(res, 200, out);
@@ -247,6 +275,7 @@ const ROUTES = {
       uiLang: body.uiLang,
       mode: body.mode,
       recognised: body.recognised,
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
     });
     bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
     send(res, 200, out);
@@ -267,7 +296,10 @@ const ROUTES = {
     if (!user) return;
     const body = await readJson(req);
     if (!body.text) return fail(res, 400, 'no_text');
-    const audio = await ai.speak({ lang: body.lang, text: body.text, slow: !!body.slow });
+    const audio = await ai.speak({
+      lang: body.lang, text: body.text, slow: !!body.slow,
+      apiKey: await keys.resolveKey(user.id, 'openai'),
+    });
     bumpUsage(user.id, 'tts_chars', String(body.text).length).catch(() => {});
     res.writeHead(200, {
       'content-type': 'audio/mpeg',
@@ -288,6 +320,7 @@ const ROUTES = {
       artist: String(body.artist).slice(0, 200).trim(),
       uiLang: body.uiLang,
       level: body.level,
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
     });
     bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
     send(res, 200, out);
@@ -298,7 +331,10 @@ const ROUTES = {
     if (!user) return;
     const body = await readJson(req);
     if (!body.transcript) return fail(res, 400, 'no_transcript');
-    const out = await ai.sessionReport({ lang: body.lang, transcript: body.transcript, uiLang: body.uiLang });
+    const out = await ai.sessionReport({
+      lang: body.lang, transcript: body.transcript, uiLang: body.uiLang,
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
+    });
     bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
     send(res, 200, out);
   },

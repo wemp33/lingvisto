@@ -106,6 +106,17 @@ http.createServer(async (req, res) => {
       return json(res, 200, { reading: '[dev]', legible: true, verdict: 'close', comment: 'Dev server: no model was called.', issues: [] });
     }
     if (p === '/api/ai/ink') return json(res, 200, { candidates: [] });
+    if (p === '/api/keys' && req.method === 'GET') {
+      return json(res, 200, {
+        openai: { set: false, last4: null, fromServer: false },
+        anthropic: { set: false, last4: null, fromServer: false },
+      });
+    }
+    if (p === '/api/keys' && req.method === 'POST') {
+      if (!/^sk-/.test(body.key || '')) return json(res, 400, { error: 'key_format' });
+      return json(res, 200, { ok: true, last4: String(body.key).slice(-4) });
+    }
+    if (p === '/api/keys' && req.method === 'DELETE') return json(res, 200, { ok: true });
     if (p === '/api/ai/song') {
       return json(res, 200, {
         found: true, confidence: 'high',

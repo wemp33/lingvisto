@@ -135,10 +135,15 @@ export function tutorInstructions({
 
   lines.push(
     '',
-    'TOOLS',
-    '- When the learner asks what a word means, or uses a word they clearly do not know yet, call note_new_word so it can be added to their glossary.',
-    '- When you correct something, call note_correction so it appears in their session report.',
-    '- Call these while you keep talking. Do not announce that you are doing it.',
+    'WHAT YOU CAN ACTUALLY DO',
+    '- You are not only talking: you can change the glossary while you talk, and the change is real and immediate.',
+    '- If they ask you to remember, save or add a word — do it with add_word, then confirm in one short clause and keep going. Never say you will add it later.',
+    '- Add words unasked too, when they meet a genuinely useful one for the first time. Do not add every word that passes.',
+    '- If they name a song they want to learn from, call learn_song. The words appear in their glossary; you cannot quote the lyrics and neither can the lesson.',
+    '- If they ask to be quizzed or to practise what they are forgetting, call get_due_words and then build the conversation around those words.',
+    '- remove_word and mark_word exist for when they ask. If you are not sure which word they mean, ask first — mishearing is your fault to prevent, not theirs to undo.',
+    '- When you correct something, call note_correction so it reaches their session report.',
+    '- Call tools while you keep talking. Never narrate the mechanics, and never read a tool result aloud verbatim.',
     '',
     `Open by greeting them in ${L.name} and asking something easy to answer.`,
   );
@@ -146,21 +151,88 @@ export function tutorInstructions({
   return lines.join('\n');
 }
 
-// Tools the realtime session can call mid-conversation. Both are silent: they
-// record something for later rather than changing what the tutor says.
+// Tools the realtime session can call mid-conversation. These are not notes for
+// later — they run against the learner's actual glossary while the conversation
+// continues, and the tutor is told to confirm out loud in one short clause.
+//
+// Everything here is additive or reversible, and the app shows an undo for each
+// one. That is deliberate: these fire on the model's reading of speech, and
+// speech recognition mishears. An action that is wrong should cost a tap to
+// put right, never a lost glossary.
 export const TUTOR_TOOLS = [
   {
     type: 'function',
-    name: 'note_new_word',
-    description: 'Record a word or phrase the learner met in this conversation and should add to their glossary.',
+    name: 'add_word',
+    description:
+      "Add a word or phrase to the learner's glossary immediately. Call this whenever they ask you to "
+      + 'remember or save a word, and also when they clearly meet a useful word for the first time. '
+      + 'It takes effect at once — say so briefly and carry on.',
     parameters: {
       type: 'object',
       required: ['term'],
       properties: {
-        term: { type: 'string', description: 'Dictionary form of the word in the language being learnt.' },
+        term: { type: 'string', description: 'Dictionary form in the language being learnt.' },
         gloss: { type: 'string', description: 'Short meaning in Polish or English.' },
-        context: { type: 'string', description: 'The sentence it came up in.' },
+        context: { type: 'string', description: 'A sentence of your own showing the word in use.' },
       },
+    },
+  },
+  {
+    type: 'function',
+    name: 'remove_word',
+    description:
+      "Remove a word from the learner's glossary. Only call this when they explicitly ask. "
+      + 'If you are not certain which word they mean, ask before calling.',
+    parameters: {
+      type: 'object',
+      required: ['term'],
+      properties: { term: { type: 'string' } },
+    },
+  },
+  {
+    type: 'function',
+    name: 'mark_word',
+    description:
+      'Change how often a word comes up in review. Use "known" when the learner says they already know it '
+      + 'well, and "hard" when they keep struggling with it.',
+    parameters: {
+      type: 'object',
+      required: ['term', 'status'],
+      properties: {
+        term: { type: 'string' },
+        status: { type: 'string', enum: ['known', 'hard'] },
+      },
+    },
+  },
+  {
+    type: 'function',
+    name: 'learn_song',
+    description:
+      'Build a vocabulary lesson from a song, when the learner names one they want to learn from. '
+      + 'It runs in the background and the words appear in their glossary. '
+      + 'You cannot quote the lyrics and neither can the lesson — it teaches the vocabulary.',
+    parameters: {
+      type: 'object',
+      required: ['title', 'artist'],
+      properties: {
+        title: { type: 'string' },
+        artist: { type: 'string' },
+        addAll: {
+          type: 'boolean',
+          description: 'True if they want everything added; false or absent to add only the everyday words.',
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    name: 'get_due_words',
+    description:
+      'Fetch the words the learner is due to revise today, so you can steer the conversation to use them. '
+      + 'Call this if they ask you to quiz them or practise what they are forgetting.',
+    parameters: {
+      type: 'object',
+      properties: { limit: { type: 'integer', description: 'How many, at most. Default 15.' } },
     },
   },
   {
