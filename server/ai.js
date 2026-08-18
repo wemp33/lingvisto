@@ -361,6 +361,111 @@ export async function analyseSong({ lang, title, artist, uiLang = 'en', level = 
   return result;
 }
 
+/* ---- vocabulary from a photo, a file, or pasted text ---- */
+
+// A photo of a menu, a street sign, a page of a book, a screenshot. The model
+// reads it, pulls out what is worth learning, and normalises everything to
+// dictionary form — a sign says "AUSFAHRT", the glossary should say "die
+// Ausfahrt". Anything it cannot actually read is left out rather than guessed
+// at: a half-legible word turned into a confident wrong entry is the one
+// failure that would quietly poison the glossary.
+const EXTRACT_TOOL = {
+  name: 'record_extraction',
+  input_schema: {
+    type: 'object',
+    required: ['readable', 'vocabulary'],
+    properties: {
+      readable: { type: 'boolean', description: 'False if the image is too blurred, dark or cropped to read.' },
+      kind: { type: 'string', description: 'What this appears to be: menu, street sign, book page, screenshot, worksheet, packaging...' },
+      language: { type: 'string', description: 'Two-letter code of the language actually on the page.' },
+      summary: { type: 'string', description: 'One sentence on what it is and what it says, in the interface language.' },
+      transcript: {
+        type: 'string',
+        description: 'The text you can actually read, transcribed plainly. Short items only — do not transcribe a whole page of a book.',
+      },
+      vocabulary: {
+        type: 'array',
+        description: 'Up to 30 words and phrases worth learning, most useful first, in dictionary form.',
+        items: {
+          type: 'object',
+          required: ['lemma', 'translations'],
+          properties: {
+            lemma: { type: 'string', description: 'Dictionary form, not the inflected form printed on the page.' },
+            asSeen: { type: 'string', description: 'How it actually appeared, when that differs from the lemma.' },
+            pos: { type: 'string' },
+            translations: {
+              type: 'object',
+              required: ['pl', 'en'],
+              properties: {
+                pl: { type: 'array', items: { type: 'string' } },
+                en: { type: 'array', items: { type: 'string' } },
+              },
+            },
+            ipa: { type: 'string' },
+            grammar: { type: 'object', additionalProperties: { type: 'string' } },
+            example: {
+              type: 'object',
+              required: ['text'],
+              properties: { text: { type: 'string' }, pl: { type: 'string' }, en: { type: 'string' } },
+            },
+            note: { type: 'string' },
+            core: { type: 'boolean', description: 'True for everyday vocabulary, false for jargon specific to this context.' },
+            uncertain: { type: 'boolean', description: 'True if you are not fully sure you read this correctly.' },
+          },
+        },
+      },
+      expressions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['expression', 'meaning'],
+          properties: { expression: { type: 'string' }, meaning: { type: 'string' } },
+        },
+      },
+      notes: { type: 'array', items: { type: 'string' }, description: 'Cultural or practical notes — how a menu is laid out, what a sign is telling you to do.' },
+    },
+  },
+};
+
+export async function extractVocabulary({ lang, images = [], text = '', uiLang = 'en', level = 'B1', apiKey }) {
+  const L = LANG_PROMPTS[lang];
+  if (!L) throw new AiError('bad_language', 400);
+  if (!images.length && !text.trim()) throw new AiError('nothing_to_read', 400);
+
+  const system = [
+    `You pull ${L.name} vocabulary out of whatever the learner puts in front of you — a photo of a menu, a sign, a page, a screenshot, or plain text.`,
+    `They are around CEFR ${level}. Write all explanations in ${uiLang === 'pl' ? 'Polish' : 'English'}.`,
+    '',
+    'Rules:',
+    '- Read only what is actually there. If a word is blurred, cropped or ambiguous, either leave it out or set uncertain: true. Never fill a gap with a plausible guess.',
+    '- If you cannot read the image at all, set readable to false and stop. Do not invent a lesson.',
+    `- Normalise every entry to dictionary form. ${L.lemmaRule}`,
+    '- Keep the printed form in asSeen when it differs, so the learner can match the entry to what they were looking at.',
+    `- ${L.grammarInstruction}`,
+    '- Skip proper nouns, prices, phone numbers and brand names unless they teach something.',
+    `- If the text is not in ${L.name}, say so in summary and set language to what it really is. Extract it anyway if it is close enough to be useful.`,
+    '- Example sentences are yours to write. Do not copy long runs of text off the page.',
+  ].join('\n');
+
+  // Images before text: Anthropic reads an image better when the question
+  // follows it. Capped well under the point where per-image limits tighten.
+  const content = images.slice(0, 4).map((data) => ({
+    type: 'image',
+    source: { type: 'base64', media_type: 'image/jpeg', data },
+  }));
+  content.push({
+    type: 'text',
+    text: text.trim()
+      ? `Text the learner supplied:\n\n${text.slice(0, 12_000)}`
+      : 'Read the image or images above.',
+  });
+
+  const { result } = await claudeJson({
+    system, content, tool: EXTRACT_TOOL, maxTokens: 6000, model: MODEL_GOOD, apiKey,
+  });
+  return result;
+}
+
 /* ---- end-of-session report ---- */
 
 const REPORT_TOOL = {

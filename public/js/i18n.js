@@ -158,6 +158,20 @@ const STRINGS = {
     'err.verify_failed': 'Could not reach the provider to check the key.',
     'err.empty_key': 'Paste a key first.',
 
+    /* extract */
+    'ex.title': 'Read a photo or file', 'ex.subtitle': 'A menu, a sign, a page, a screenshot.',
+    'ex.takePhoto': 'Take a photo', 'ex.chooseFile': 'Choose a file',
+    'ex.orPaste': 'Or paste text', 'ex.pastePlaceholder': 'Paste anything in the language you are learning…',
+    'ex.extract': 'Pull out the words', 'ex.reading': 'Reading it…',
+    'ex.found': 'Words found', 'ex.addN': 'Add {n}', 'ex.asSeen': 'on the page',
+    'ex.words': 'words', 'ex.maxImages': '{n} images at a time.',
+    'ex.unsupported': 'That file type cannot be read.', 'ex.unreadable': 'That image could not be opened.',
+    'ex.cannotRead': 'I could not read that.',
+    'ex.cannotReadHint': 'Try a closer, better-lit photo, or crop it to the text. I will not guess at words I cannot see.',
+    'ex.wrongLang': 'This does not look like {lang}.',
+    'ex.privacy': 'The photo is sent to the AI to be read, and is not stored — only the words are kept.',
+    'ex.myCaptures': 'From photos and files', 'ex.deleteWarn': 'Remove this? Words you already added stay in your glossary.',
+
     /* settings */
     'set.title': 'Settings',
     'set.interface': 'Interface language', 'set.learning': 'Languages I am learning',
@@ -328,6 +342,20 @@ const STRINGS = {
     'err.key_rejected': 'Dostawca odrzucił ten klucz.',
     'err.verify_failed': 'Nie udało się połączyć z dostawcą, żeby sprawdzić klucz.',
     'err.empty_key': 'Najpierw wklej klucz.',
+
+    /* extract */
+    'ex.title': 'Odczytaj zdjęcie lub plik', 'ex.subtitle': 'Menu, znak, strona, zrzut ekranu.',
+    'ex.takePhoto': 'Zrób zdjęcie', 'ex.chooseFile': 'Wybierz plik',
+    'ex.orPaste': 'Albo wklej tekst', 'ex.pastePlaceholder': 'Wklej cokolwiek w języku, którego się uczysz…',
+    'ex.extract': 'Wyciągnij słowa', 'ex.reading': 'Czytam…',
+    'ex.found': 'Znalezione słowa', 'ex.addN': 'Dodaj {n}', 'ex.asSeen': 'na stronie',
+    'ex.words': 'słów', 'ex.maxImages': 'Najwyżej {n} zdjęcia naraz.',
+    'ex.unsupported': 'Tego typu pliku nie da się odczytać.', 'ex.unreadable': 'Nie udało się otworzyć tego zdjęcia.',
+    'ex.cannotRead': 'Nie udało mi się tego odczytać.',
+    'ex.cannotReadHint': 'Spróbuj bliższego, lepiej oświetlonego zdjęcia albo skadruj sam tekst. Nie będę zgadywać słów, których nie widzę.',
+    'ex.wrongLang': 'To nie wygląda na {lang}.',
+    'ex.privacy': 'Zdjęcie trafia do AI, żeby je odczytać, i nie jest przechowywane — zostają tylko słowa.',
+    'ex.myCaptures': 'Ze zdjęć i plików', 'ex.deleteWarn': 'Usunąć? Dodane już słowa zostają w słowniku.',
 
     'set.title': 'Ustawienia',
     'set.interface': 'Język interfejsu', 'set.learning': 'Języki, których się uczę',

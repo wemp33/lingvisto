@@ -171,6 +171,11 @@ export async function speak(text, lang, { slow = false } = {}) {
 export const analyseSong = (payload) =>
   req('/ai/song', { method: 'POST', body: payload, timeout: 120_000 });
 
+// Images are already downscaled client-side; this is still the largest
+// request the app makes, so it gets a long ceiling.
+export const extractVocabulary = (payload) =>
+  req('/ai/extract', { method: 'POST', body: payload, timeout: 180_000 });
+
 export const sessionReport = (payload) =>
   req('/ai/report', { method: 'POST', body: payload, timeout: 60_000 });
 

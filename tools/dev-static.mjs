@@ -117,6 +117,24 @@ http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, last4: String(body.key).slice(-4) });
     }
     if (p === '/api/keys' && req.method === 'DELETE') return json(res, 200, { ok: true });
+    if (p === '/api/ai/extract') {
+      const imgs = (body.images || []).length;
+      return json(res, 200, {
+        readable: true, kind: '[dev] menu', language: body.lang,
+        summary: `[dev] No model was called. ${imgs} image(s), ${(body.text || '').length} chars of text.`,
+        transcript: '[dev]',
+        vocabulary: [
+          { lemma: '[dev] die Speisekarte', asSeen: 'SPEISEKARTE', pos: 'noun',
+            translations: { pl: ['[dev] menu'], en: ['[dev] menu'] }, grammar: { article: 'die' },
+            example: { text: '[dev] Beispiel.' }, core: true },
+          { lemma: '[dev] verschwommen', pos: 'adjective',
+            translations: { pl: ['[dev] rozmyty'], en: ['[dev] blurred'] },
+            example: { text: '[dev] Beispiel.' }, core: false, uncertain: true },
+        ],
+        expressions: [{ expression: '[dev] zum Mitnehmen', meaning: '[dev] to take away' }],
+        notes: ['[dev] placeholder'],
+      });
+    }
     if (p === '/api/ai/song') {
       return json(res, 200, {
         found: true, confidence: 'high',

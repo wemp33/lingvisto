@@ -13,6 +13,7 @@ import { newCard, SKILLS, STATE } from './srs.js';
 import { t, uiLang, relativeTime, formatDate } from './i18n.js';
 import { el, clear, sheet, toast, toastError, confirmAction, tap, debounce } from './ui.js';
 import { songsSection } from './songs.js';
+import { capturesSection } from './extract.js';
 
 /* ---------- data ---------- */
 
@@ -431,7 +432,7 @@ export function renderWords(root, ctx) {
   // Songs sit under the word list rather than in the tab bar: they are a way
   // of filling the glossary, not a fifth place to go.
   const songs = songsSection(ctx, paint);
-  root.append(songs);
+  root.append(songs, capturesSection(ctx, paint));
 
   async function paint() {
     const words = (await allWords(lang)).sort((a, b) => b.createdAt - a.createdAt);
@@ -472,6 +473,7 @@ export function renderWords(root, ctx) {
           dotsNode(strengthDots(cards, w.id)),
           w.unchecked ? el('span.pill.warn', { text: '?' }) : null,
           w.source === 'song' ? el('span.pill', { text: '♪' }) : null,
+          w.source === 'capture' ? el('span.pill', { text: '⌾' }) : null,
         ]),
       ]));
     }

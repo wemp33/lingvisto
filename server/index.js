@@ -326,6 +326,22 @@ const ROUTES = {
     send(res, 200, out);
   },
 
+  'POST /api/ai/extract': async (req, res) => {
+    const user = await requireUser(req, res);
+    if (!user) return;
+    const body = await readJson(req, 24_000_000);
+    const images = (Array.isArray(body.images) ? body.images : [])
+      .map((d) => String(d).replace(/^data:image\/\w+;base64,/, ''))
+      .slice(0, 4);
+    const out = await ai.extractVocabulary({
+      lang: body.lang, images, text: String(body.text || ''),
+      uiLang: body.uiLang, level: body.level,
+      apiKey: await keys.resolveKey(user.id, 'anthropic'),
+    });
+    bumpUsage(user.id, 'claude_calls', 1).catch(() => {});
+    send(res, 200, out);
+  },
+
   'POST /api/ai/report': async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;

@@ -10,7 +10,7 @@
 const DB_NAME = 'lingvisto';
 const DB_VERSION = 1;
 
-export const KINDS = ['word', 'card', 'page', 'log', 'pref', 'convo', 'song'];
+export const KINDS = ['word', 'card', 'page', 'log', 'pref', 'convo', 'song', 'capture'];
 
 let dbPromise = null;
 

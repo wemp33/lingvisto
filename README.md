@@ -34,6 +34,12 @@ songs are full of, so nobody starts speaking in lyrics. Pick what you want and
 it joins the same glossary and the same review queue, tagged with where it came
 from.
 
+**Photos and files** — point the camera at a menu, a street sign, a page of a
+book or a screenshot, pick an image or text file, or paste text straight in.
+The words come back in dictionary form with translations, keeping the printed
+form alongside so you can match an entry to what you were looking at. Anything
+the model could not read confidently arrives flagged and unticked.
+
 **Review** — spaced repetition over four separate skills per word: recognising
 it, producing it, saying it, and writing it by hand.
 
@@ -166,6 +172,15 @@ rest, which protects against a database dump or a key in a log — not against
 someone who already has the server and its secret. Keeping them off the client
 is what preserves the ephemeral-token design: the real key never reaches a page
 where injected script could read it.
+
+**Read what is there, or admit you cannot.** Both the song and photo features
+are told to answer "I could not read that" rather than produce a plausible
+lesson, and to flag individual entries they are unsure of. A confident wrong
+entry is the one failure that quietly poisons a glossary, because it is
+indistinguishable from a correct one until you use it on a native speaker.
+Photos are downscaled to 1568 px client-side — the model resizes above that
+anyway, and on a phone connection the upload is most of the wait. The image is
+sent to be read and never stored; only the words are kept.
 
 **Songs teach vocabulary, not lyrics.** The song feature never reproduces the
 words of a song — not a line, not a distinctive phrase. Vocabulary comes back
